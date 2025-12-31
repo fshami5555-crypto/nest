@@ -1,0 +1,7 @@
+{
+  "name": "Nestgirl",
+  "description": "A comprehensive women's assistant app for all stages of life, from adolescence to motherhood, powered by Gemini AI.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
