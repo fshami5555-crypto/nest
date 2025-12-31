@@ -12,17 +12,19 @@ export interface UserProfile {
   chronicDiseases: string;
   previousSurgeries: string;
   phone: string;
-  nextPeriodDay?: number;
+  nextPeriodDate?: string; // تاريخ كامل بدلاً من رقم اليوم
+  lastPeriodEndDate?: string;
   periodIssues?: string;
   isPeriodActive: boolean;
   periodStartTimestamp?: number;
   chatHistory?: Message[];
   savedMealPlan?: any[];
   mealPlanGoal?: string;
-  // الحقول الجديدة
   expectedDueDate?: string;
   babyGender?: 'boy' | 'girl' | 'not_yet';
   stillGetsPeriod?: boolean;
+  isPostpartum?: boolean;
+  postpartumStartTimestamp?: number;
 }
 
 export interface Article {

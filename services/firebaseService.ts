@@ -7,10 +7,25 @@ import {
 import { db } from "../firebase.ts";
 import { UserProfile, Article, CommunityPost, Comment } from "../types.ts";
 
+/**
+ * Helper to remove undefined values from objects as Firestore doesn't support them.
+ */
+const cleanData = (data: any) => {
+  const cleaned = { ...data };
+  Object.keys(cleaned).forEach(key => {
+    if (cleaned[key] === undefined) {
+      delete cleaned[key];
+    } else if (cleaned[key] && typeof cleaned[key] === 'object' && !Array.isArray(cleaned[key])) {
+      cleaned[key] = cleanData(cleaned[key]);
+    }
+  });
+  return cleaned;
+};
+
 // Global Settings (API Keys, etc.)
 export const saveAppSettings = async (settings: { geminiApiKey: string }) => {
   try {
-    await setDoc(doc(db, "settings", "config"), settings);
+    await setDoc(doc(db, "settings", "config"), cleanData(settings));
   } catch (e) {
     console.error("Error saving settings:", e);
     throw e;
@@ -31,7 +46,9 @@ export const getAppSettings = async () => {
 // Users
 export const saveUserToDB = async (user: UserProfile) => {
   try {
-    await setDoc(doc(db, "users", user.phone), user);
+    // Crucial: remove undefined values before sending to Firestore
+    const dataToSave = cleanData(user);
+    await setDoc(doc(db, "users", user.phone), dataToSave);
   } catch (e) {
     console.error("Error saving user:", e);
     throw e;
@@ -73,7 +90,7 @@ export const deleteUserFromDB = async (phone: string) => {
 export const addArticleToDB = async (article: Article) => {
   try {
     await addDoc(collection(db, "articles"), { 
-      ...article, 
+      ...cleanData(article), 
       createdAt: Date.now(),
       likes: 0,
       comments: []
@@ -100,7 +117,7 @@ export const addCommentToArticle = async (articleId: string, comment: Comment) =
   try {
     const docRef = doc(db, "articles", articleId);
     await updateDoc(docRef, {
-      comments: arrayUnion(comment)
+      comments: arrayUnion(cleanData(comment))
     });
   } catch (e) {
     console.error("Error adding comment to article:", e);
@@ -122,7 +139,7 @@ export const likeArticleInDB = async (articleId: string, currentLikes: number) =
 export const addPostToDB = async (post: Partial<CommunityPost>) => {
   try {
     await addDoc(collection(db, "posts"), { 
-      ...post, 
+      ...cleanData(post), 
       timestamp: Date.now(),
       likes: 0,
       comments: []
@@ -150,7 +167,7 @@ export const addCommentToPost = async (postId: string, comment: Comment) => {
   try {
     const postRef = doc(db, "posts", postId);
     await updateDoc(postRef, {
-      comments: arrayUnion(comment)
+      comments: arrayUnion(cleanData(comment))
     });
   } catch (e) {
     console.error("Error adding comment:", e);

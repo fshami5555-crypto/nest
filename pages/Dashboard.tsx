@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile } from '../types';
-import { Bell, Menu, Cloud, Calendar, Clock, MapPin, Sun, CloudRain, CloudLightning, CloudSnow, CloudFog, CloudSun } from 'lucide-react';
+import { Bell, Menu, Cloud, Calendar, Clock, MapPin, Sun, CloudRain, CloudLightning, CloudSnow, CloudFog, CloudSun, Sparkles, AlertCircle, Info, Baby } from 'lucide-react';
 import { getDynamicGreeting } from '../services/geminiService';
 
 interface DashboardProps {
@@ -32,45 +32,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
   useEffect(() => {
     getDynamicGreeting(user).then(setAiText);
     fetchWeather();
-  }, [user]);
+  }, [user.name, user.maritalStatus, user.motherhoodStatus, user.isPostpartum, user.isPeriodActive]);
 
   const fetchWeather = () => {
     if (!navigator.geolocation) {
       setWeatherLoading(false);
       return;
     }
-
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       try {
-        // Fetch City Name (Reverse Geocoding)
         const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ar`);
         const geoData = await geoRes.json();
         const cityName = geoData.city || geoData.locality || "موقعك الحالي";
-
-        // Fetch Weather Data
         const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
         const weatherData = await weatherRes.json();
-        
         const code = weatherData.current_weather.weathercode;
         const temp = Math.round(weatherData.current_weather.temperature);
-        
         const mapping = getWeatherMapping(code);
-        
-        setWeather({
-          temp,
-          city: cityName,
-          condition: mapping.text,
-          icon: mapping.icon
-        });
+        setWeather({ temp, city: cityName, condition: mapping.text, icon: mapping.icon });
       } catch (error) {
         console.error("Weather fetch error:", error);
       } finally {
         setWeatherLoading(false);
       }
-    }, () => {
-      setWeatherLoading(false);
-    });
+    }, () => setWeatherLoading(false));
   };
 
   const getWeatherMapping = (code: number) => {
@@ -84,52 +70,175 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
     return { text: "غائم", icon: Cloud };
   };
 
-  const daysRemaining = useMemo(() => {
-    if (user.isPeriodActive) return 0;
-    const today = new Date().getDate();
-    const next = user.nextPeriodDay || 1;
-    let diff = next - today;
-    if (diff <= 0) diff += 30;
-    return diff;
-  }, [user]);
+  const stateInfo = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const togglePeriod = () => {
-    const isStarting = !user.isPeriodActive;
-    onUpdateUser({
-      ...user,
-      isPeriodActive: isStarting,
-      periodStartTimestamp: isStarting ? Date.now() : undefined,
-      nextPeriodDay: isStarting ? undefined : (new Date().getDate() + 25) % 30 // Rough estimation
-    });
+    if (user.motherhoodStatus === 'pregnant' && user.expectedDueDate) {
+      const due = new Date(user.expectedDueDate);
+      const dueDateOnly = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+      const diffTime = dueDateOnly.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      const totalPregnancyDays = 274;
+      const startDate = new Date(dueDateOnly.getTime() - (totalPregnancyDays * 24 * 60 * 60 * 1000));
+      const passedTime = today.getTime() - startDate.getTime();
+      const passedDays = Math.floor(passedTime / (1000 * 60 * 60 * 24));
+      const currentMonth = Math.min(9, Math.max(1, Math.ceil(passedDays / 30.5)));
+
+      if (diffDays < 0) {
+        return {
+          type: 'pregnant_late',
+          title: `تأخرت الولادة ${Math.abs(diffDays)} يوم`,
+          subtitle: `لقد أتممتِ الشهر التاسع بسلام`,
+          buttonText: 'قمت بالإنجاب 👶',
+          gradient: 'bg-gradient-to-br from-red-500 to-rose-700',
+          icon: <AlertCircle size={20} className="text-white" />
+        };
+      }
+
+      return {
+        type: 'pregnant',
+        title: `باقي ${diffDays} يوم للولادة`,
+        subtitle: `أنتِ في الشهر الـ ${currentMonth}`,
+        buttonText: 'قمت بالإنجاب 👶',
+        gradient: 'bg-gradient-to-br from-blue-400 to-indigo-500',
+        icon: <Baby size={20} className="text-white" />
+      };
+    }
+
+    if (user.isPostpartum && user.postpartumStartTimestamp) {
+      const start = new Date(user.postpartumStartTimestamp);
+      const startDayOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const diffTime = today.getTime() - startDayOnly.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      return {
+        type: 'postpartum',
+        title: `اليوم الـ ${diffDays} للنفاس`,
+        subtitle: 'فترة التعافي والعناية بالمولود',
+        buttonText: 'بدأت الدورة لدي',
+        gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600',
+        icon: <Sparkles size={20} className="text-white" />
+      };
+    }
+
+    if (user.isPeriodActive && user.periodStartTimestamp) {
+      const start = new Date(user.periodStartTimestamp);
+      const startDayOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const diffTime = today.getTime() - startDayOnly.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return { 
+        type: 'period_active', 
+        title: `اليوم الـ ${diffDays} للدورة`, 
+        subtitle: 'فترة الحيض',
+        buttonText: 'انتهت الدورة',
+        gradient: 'bg-gradient-to-br from-rose-500 to-pink-600',
+        icon: <Info size={16} className="text-white" />
+      };
+    }
+
+    if (user.nextPeriodDate) {
+      const expectedDate = new Date(user.nextPeriodDate);
+      const expectedDateOnly = new Date(expectedDate.getFullYear(), expectedDate.getMonth(), expectedDate.getDate());
+      
+      const diffTime = expectedDateOnly.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        return { 
+          type: 'late', 
+          title: `تأخرت الدورة ${Math.abs(diffDays)} يوم`, 
+          subtitle: 'يرجى الانتباه لصحتكِ',
+          buttonText: 'بدأت الدورة لدي',
+          gradient: 'bg-gradient-to-br from-red-600 to-rose-700',
+          icon: <AlertCircle size={16} />
+        };
+      } else {
+        let sub = 'فترة الاستعداد';
+        let isFertile = diffDays <= 16 && diffDays >= 12; // تقريب لأيام التبويض
+        if (isFertile) sub = 'أيام التبويض (خصوبة عالية)';
+
+        return { 
+          type: 'waiting', 
+          title: `باقي ${diffDays} يوم للدورة`, 
+          subtitle: sub,
+          buttonText: 'بدأت الدورة لدي',
+          gradient: 'bg-gradient-to-br from-pink-400 to-rose-400',
+          icon: isFertile ? <Sparkles size={16} /> : <Calendar size={16} />
+        };
+      }
+    }
+
+    return { 
+      type: 'none', 
+      title: 'لا توجد بيانات', 
+      subtitle: 'يرجى تحديث ملفكِ الشخصي',
+      buttonText: 'بدأت الدورة لدي',
+      gradient: 'bg-gradient-to-br from-gray-400 to-gray-500',
+      icon: <Calendar size={16} />
+    };
+  }, [user, currentTime]);
+
+  const handleAction = () => {
+    const updatedUser = { ...user };
+
+    if (stateInfo.type === 'pregnant' || stateInfo.type === 'pregnant_late') {
+      updatedUser.motherhoodStatus = 'mother';
+      updatedUser.isPostpartum = true;
+      updatedUser.postpartumStartTimestamp = Date.now();
+      updatedUser.isPeriodActive = false;
+      delete updatedUser.expectedDueDate;
+    } else if (stateInfo.type === 'postpartum') {
+      updatedUser.isPostpartum = false;
+      delete updatedUser.postpartumStartTimestamp;
+      updatedUser.isPeriodActive = true;
+      updatedUser.periodStartTimestamp = Date.now();
+      updatedUser.motherhoodStatus = 'mother';
+    } else if (stateInfo.type === 'period_active') {
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + 30);
+      updatedUser.isPeriodActive = false;
+      delete updatedUser.periodStartTimestamp;
+      updatedUser.nextPeriodDate = nextDate.toISOString().split('T')[0];
+    } else {
+      updatedUser.isPeriodActive = true;
+      updatedUser.periodStartTimestamp = Date.now();
+      updatedUser.isPostpartum = false;
+      if (updatedUser.motherhoodStatus === 'pregnant') {
+        updatedUser.motherhoodStatus = 'not_pregnant';
+      }
+    }
+
+    onUpdateUser(updatedUser);
   };
 
   const WeatherIcon = weather?.icon || Cloud;
 
   return (
     <div className="p-4 pt-4">
-      {/* Header */}
       <header className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm"><Menu size={24} className="text-pink-500" /></button>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-white rounded-xl shadow-sm hover:scale-105 transition-transform"><Menu size={24} className="text-pink-500" /></button>
           <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-sm" />
         </div>
-        <button className="p-2 bg-white rounded-xl shadow-sm text-pink-500 relative">
+        <button className="p-2 bg-white rounded-xl shadow-sm text-pink-500 relative hover:scale-105 transition-transform">
           <Bell size={24} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
         </button>
       </header>
 
-      {/* Info Card */}
-      <div className="bg-gradient-to-br from-pink-400 to-rose-400 p-6 rounded-[2.5rem] text-white shadow-xl mb-6 relative overflow-hidden">
-        <div className="flex justify-between items-start">
+      <div className={`p-6 rounded-[2.5rem] text-white shadow-xl mb-6 relative overflow-hidden transition-all duration-700 ease-in-out ${stateInfo.gradient}`}>
+        <div className="absolute top-0 left-0 w-full h-full bg-white/5 pointer-events-none"></div>
+        <div className="flex justify-between items-start relative z-10">
           <div className="space-y-1">
-            <p className="text-rose-100 flex items-center gap-2 text-xs opacity-90">
+            <p className="text-white/80 flex items-center gap-2 text-xs opacity-90">
               <Calendar size={14} /> {currentTime.toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
             <p className="text-4xl font-bold flex items-center gap-3 my-2">
               <Clock size={28} /> {currentTime.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
             </p>
-            <div className="text-rose-50 flex items-center gap-2 mt-3 bg-white/10 w-fit px-3 py-1.5 rounded-full border border-white/10">
+            <div className="text-white/90 flex items-center gap-2 mt-3 bg-white/10 w-fit px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
               {weatherLoading ? (
                 <span className="text-xs animate-pulse">جاري جلب حالة الطقس...</span>
               ) : weather ? (
@@ -140,56 +249,60 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
               ) : (
                 <>
                   <MapPin size={14} />
-                  <span className="text-xs">يرجى تفعيل الموقع للطقس</span>
+                  <span className="text-xs">تفعيل الموقع للطقس</span>
                 </>
               )}
             </div>
           </div>
+          
           <div className="text-left">
-            <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/30">
-              <p className="text-[10px] uppercase tracking-wider opacity-80">دورتكِ الشهرية</p>
-              <p className="text-lg font-bold">
-                {user.isPeriodActive ? 'اليوم الأول' : `باقي ${daysRemaining} يوم`}
+            <div className="bg-white/20 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/30 text-center min-w-[140px] shadow-lg">
+              <p className="text-[10px] uppercase tracking-wider opacity-80 mb-1 flex items-center justify-center gap-1 font-bold">
+                {stateInfo.icon} وضعكِ الحالي
               </p>
+              <p className="text-lg font-bold leading-tight">{stateInfo.title}</p>
+              <p className="text-[9px] mt-1 text-white/90 font-medium bg-white/10 rounded px-1 py-0.5">{stateInfo.subtitle}</p>
             </div>
           </div>
         </div>
         
         <button 
-          onClick={togglePeriod}
-          className={`mt-6 w-full py-4 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${user.isPeriodActive ? 'bg-white text-rose-500' : 'bg-rose-600 text-white'}`}
+          onClick={handleAction}
+          className="mt-6 w-full py-4 bg-white text-gray-800 rounded-2xl font-bold shadow-lg transition-all active:scale-95 hover:bg-gray-50 flex items-center justify-center gap-2 group"
         >
-          {user.isPeriodActive ? 'انتهت الدورة' : 'بدأت الدورة لدي'}
+          <span className="group-hover:translate-x-1 transition-transform">{stateInfo.buttonText}</span>
         </button>
       </div>
 
-      {/* AI Chat Box */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6 flex gap-4 items-start relative overflow-hidden group transition-all hover:shadow-md">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-pink-50 mb-6 flex gap-4 items-start relative overflow-hidden group transition-all hover:shadow-md hover:border-pink-200">
         <div className="absolute top-0 right-0 w-2 h-full bg-pink-400 opacity-20"></div>
         <div className="w-12 h-12 bg-pink-100 rounded-full flex-shrink-0 flex items-center justify-center border-2 border-white overflow-hidden shadow-inner">
-          <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="AI" className="w-full h-full object-cover" />
+          <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="AI" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
         </div>
-        <div>
-          <h4 className="font-bold text-pink-600 mb-1 text-sm">مساعدتكِ الذكية</h4>
-          <p className="text-gray-600 leading-relaxed text-xs">
-            {aiText}
+        <div className="flex-1">
+          <h4 className="font-bold text-pink-600 mb-1 text-sm flex items-center gap-2">
+            مساعدتكِ الذكية <Sparkles size={14} />
+          </h4>
+          <p className="text-gray-600 leading-relaxed text-xs italic">
+            "{aiText}"
           </p>
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-blue-50 flex flex-col justify-between h-28 hover:shadow-md transition-shadow">
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-blue-50 flex flex-col justify-between h-28 hover:shadow-md transition-all hover:-translate-y-1">
           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">الوزن الحالي</p>
           <div className="flex items-end justify-between">
             <p className="text-2xl font-bold text-blue-600">{user.weight}</p>
             <span className="text-xs text-blue-300 font-bold mb-1">كجم</span>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-orange-50 flex flex-col justify-between h-28 hover:shadow-md transition-shadow">
-          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">النشاط البدني</p>
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-orange-50 flex flex-col justify-between h-28 hover:shadow-md transition-all hover:-translate-y-1">
+          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">المرحلة الحالية</p>
           <div className="flex items-end justify-between">
-            <p className="text-lg font-bold text-orange-600">نشط اليوم</p>
+            <p className="text-sm font-bold text-orange-600 capitalize">
+              {user.isPostpartum ? 'فترة النفاس' : (user.motherhoodStatus === 'pregnant' ? 'مرحلة الحمل' : (user.isPeriodActive ? 'فترة الحيض' : 'الوضع الطبيعي'))}
+            </p>
           </div>
         </div>
       </div>
