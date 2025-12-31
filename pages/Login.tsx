@@ -1,33 +1,45 @@
 
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile } from '../types.ts';
+import { getUserFromDB } from '../services/firebaseService.ts';
 
 interface LoginProps {
   setView: (v: any) => void;
   setUser: (u: UserProfile) => void;
   setIsAdmin: (a: boolean) => void;
-  allUsers: UserProfile[];
 }
 
-const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin, allUsers }) => {
+const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     if (phone === 'admin@nest.com' && password === '12341234') {
       setIsAdmin(true);
+      setLoading(false);
       return;
     }
 
-    // Checking local simulation
-    const found = allUsers.find(u => u.phone === phone);
-    if (found) {
-      setUser(found);
-      setView('dashboard');
-    } else {
-      setError('بيانات الدخول غير صحيحة');
+    try {
+      const found = await getUserFromDB(phone);
+      // ملاحظة: في تطبيق حقيقي يجب تشفير كلمة السر والتحقق منها. هنا نتحقق ببساطة.
+      if (found) {
+        setUser(found);
+        localStorage.setItem('nestgirl_user', JSON.stringify(found));
+        setView('dashboard');
+      } else {
+        setError('رقم الهاتف غير مسجل أو البيانات خاطئة');
+      }
+    } catch (err) {
+      setError('حدث خطأ أثناء تسجيل الدخول');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,7 +48,7 @@ const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin, allUsers })
       <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Nestgirl Logo" className="w-48 mb-8 drop-shadow-md" />
       <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-pink-50">
         <h1 className="text-3xl font-bold text-center text-pink-600 mb-8">تسجيل الدخول</h1>
-        {error && <p className="text-red-500 text-center mb-4 text-sm">{error}</p>}
+        {error && <p className="text-red-500 text-center mb-4 text-sm font-bold">{error}</p>}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف أو البريد</label>
@@ -60,8 +72,11 @@ const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin, allUsers })
               placeholder="********"
             />
           </div>
-          <button className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-transform active:scale-95">
-            دخول
+          <button 
+            disabled={loading}
+            className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-transform active:scale-95 disabled:bg-pink-300"
+          >
+            {loading ? 'جاري التحقق...' : 'دخول'}
           </button>
         </form>
         <div className="mt-8 text-center text-gray-500">

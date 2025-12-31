@@ -2,9 +2,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfile, Message } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Variable to store the key in-memory during operation
+let dynamicApiKey = process.env.API_KEY || '';
+
+export const updateGeminiKey = (newKey: string) => {
+  dynamicApiKey = newKey;
+};
+
+const getAIInstance = () => {
+  return new GoogleGenAI({ apiKey: dynamicApiKey });
+};
 
 export const getDynamicGreeting = async (user: UserProfile) => {
+  if (!dynamicApiKey) return "مرحباً بكِ في Nestgirl!";
+  
   const hour = new Date().getHours();
   const timeContext = hour < 12 ? "الصباح" : "المساء";
   
@@ -20,6 +31,7 @@ export const getDynamicGreeting = async (user: UserProfile) => {
   إذا كانت متزوجة أو أماً، وجه نصيحة سريعة تتعلق بحالتها. لا تزد عن 30 كلمة.`;
 
   try {
+    const ai = getAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -32,6 +44,8 @@ export const getDynamicGreeting = async (user: UserProfile) => {
 };
 
 export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
+  if (!dynamicApiKey) return null;
+
   const prompt = `بناءً على المعلومات التالية:
   الوزن: ${user.weight}, الطول: ${user.height}, الهدف: ${goal}.
   قم بإنشاء جدول غذائي أسبوعي (من السبت إلى الجمعة).
@@ -40,6 +54,7 @@ export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
   الهدف من الجدول هو: ${goal === 'lose' ? 'تخفيف الوزن' : goal === 'gain' ? 'زيادة الوزن' : 'المحافظة على الوزن'}.`;
 
   try {
+    const ai = getAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
@@ -77,10 +92,7 @@ export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
 };
 
 export const getPsychologicalChat = async (messages: Message[], user: UserProfile) => {
-  const history = messages.map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.text }]
-  }));
+  if (!dynamicApiKey) return "يرجى تهيئة مفتاح API للذكاء الاصطناعي أولاً.";
 
   const systemInstruction = `أنت مستشار نفسي ودود وداعم في تطبيق Nestgirl. 
   هدفنا هو مساعدة المستخدمة ${user.name} على تحسين حالتها النفسية. 
@@ -88,6 +100,7 @@ export const getPsychologicalChat = async (messages: Message[], user: UserProfil
   تحدث باللغة العربية بأسلوب أنثوي وراقي.`;
 
   try {
+    const ai = getAIInstance();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: messages[messages.length - 1].text,

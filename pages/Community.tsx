@@ -1,31 +1,31 @@
 
 import React, { useState } from 'react';
-import { UserProfile, CommunityPost } from '../types';
+import { UserProfile, CommunityPost } from '../types.ts';
 import { Heart, MessageCircle, Share2, Send } from 'lucide-react';
+import { addCommentToPost, likePostInDB } from '../services/firebaseService.ts';
 
 interface CommunityProps {
   user: UserProfile;
   posts: CommunityPost[];
-  setPosts: React.Dispatch<React.SetStateAction<CommunityPost[]>>;
 }
 
-const Community: React.FC<CommunityProps> = ({ user, posts, setPosts }) => {
+const Community: React.FC<CommunityProps> = ({ user, posts }) => {
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
 
-  const handleLike = (id: string) => {
-    setPosts(prev => prev.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p));
+  const handleLike = async (postId: string, currentLikes: number) => {
+    await likePostInDB(postId, currentLikes);
   };
 
-  const handleComment = (postId: string) => {
+  const handleComment = async (postId: string) => {
     if (!commentText.trim()) return;
     const newComment = {
-      id: Math.random().toString(),
+      id: Math.random().toString(36).substr(2, 9),
       userName: user.name,
       text: commentText,
       isAdminReply: false
     };
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p));
+    await addCommentToPost(postId, newComment);
     setCommentText('');
     setActiveCommentPost(null);
   };
@@ -38,7 +38,7 @@ const Community: React.FC<CommunityProps> = ({ user, posts, setPosts }) => {
         {posts.map(post => (
           <div key={post.id} className="bg-white rounded-3xl shadow-sm border border-pink-50 overflow-hidden">
             <div className="p-4 flex items-center gap-3 border-b border-pink-50">
-              <img src={post.publisherImage} alt={post.publisherName} className="w-10 h-10 rounded-full border border-pink-100" />
+              <img src={post.publisherImage} alt={post.publisherName} className="w-10 h-10 rounded-full border border-pink-100 object-cover" />
               <div>
                 <h4 className="font-bold text-sm">{post.publisherName}</h4>
                 <p className="text-[10px] text-gray-400">{new Date(post.timestamp).toLocaleString('ar-EG')}</p>
@@ -46,16 +46,22 @@ const Community: React.FC<CommunityProps> = ({ user, posts, setPosts }) => {
             </div>
             
             <div className="p-4">
-              <p className="text-gray-700 leading-relaxed mb-4">{post.text}</p>
+              <p className="text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">{post.text}</p>
               
               <div className="flex items-center gap-6 text-gray-500">
-                <button onClick={() => handleLike(post.id)} className="flex items-center gap-1 hover:text-pink-500">
-                  <Heart size={20} className={post.likes > 12 ? 'fill-pink-500 text-pink-500' : ''} />
-                  <span className="text-sm">{post.likes}</span>
+                <button 
+                  onClick={() => handleLike(post.id!, post.likes)} 
+                  className="flex items-center gap-1 transition-colors hover:text-pink-500 group"
+                >
+                  <Heart size={20} className={`group-active:scale-125 transition-transform ${post.likes > 0 ? 'fill-pink-500 text-pink-500' : ''}`} />
+                  <span className="text-sm font-bold">{post.likes}</span>
                 </button>
-                <button onClick={() => setActiveCommentPost(activeCommentPost === post.id ? null : post.id)} className="flex items-center gap-1 hover:text-blue-500">
+                <button 
+                  onClick={() => setActiveCommentPost(activeCommentPost === post.id ? null : post.id!)} 
+                  className="flex items-center gap-1 hover:text-blue-500"
+                >
                   <MessageCircle size={20} />
-                  <span className="text-sm">{post.comments.length}</span>
+                  <span className="text-sm font-bold">{post.comments.length}</span>
                 </button>
                 <button className="flex items-center gap-1 hover:text-green-500 mr-auto">
                   <Share2 size={20} />
@@ -82,9 +88,9 @@ const Community: React.FC<CommunityProps> = ({ user, posts, setPosts }) => {
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder="اكتبي تعليقاً..."
-                      className="flex-1 p-2 rounded-xl text-sm border border-pink-100 outline-none"
+                      className="flex-1 p-2 rounded-xl text-sm border border-pink-100 outline-none focus:ring-2 focus:ring-pink-200"
                     />
-                    <button onClick={() => handleComment(post.id)} className="bg-pink-500 text-white p-2 rounded-xl"><Send size={18} /></button>
+                    <button onClick={() => handleComment(post.id!)} className="bg-pink-500 text-white p-2 rounded-xl active:scale-95"><Send size={18} /></button>
                   </div>
                 )}
               </div>
