@@ -125,7 +125,7 @@ const Signup: React.FC<SignupProps> = ({ setView, onSignup }) => {
           </div>
           <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-pink-100 transform rotate-45 border-r border-b border-pink-200"></div>
         </div>
-        <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Character" className="w-16 h-16 rounded-full object-cover border-4 border-pink-200" />
+        <img src="https://i.ibb.co/gLL91v09/1.png" alt="Character" className="w-20 h-20 rounded-full object-cover border-4 border-pink-200 shadow-lg" />
       </div>
     </div>
   );
