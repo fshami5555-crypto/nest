@@ -1,21 +1,20 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  UserProfile, Article, CommunityPost, 
-  MaritalStatus, MotherhoodStatus 
-} from './types';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import InitialSurvey from './pages/InitialSurvey';
-import Dashboard from './pages/Dashboard';
-import SkinCare from './pages/SkinCare';
-import FamilyCare from './pages/FamilyCare';
-import FitnessFood from './pages/FitnessFood';
-import PsychChat from './pages/PsychChat';
-import Community from './pages/Community';
-import AdminDashboard from './pages/Admin';
-import Sidebar from './components/Sidebar';
-import Navigation from './components/Navigation';
+  UserProfile, Article, CommunityPost 
+} from './types.ts';
+import Login from './pages/Login.tsx';
+import Signup from './pages/Signup.tsx';
+import InitialSurvey from './pages/InitialSurvey.tsx';
+import Dashboard from './pages/Dashboard.tsx';
+import SkinCare from './pages/SkinCare.tsx';
+import FamilyCare from './pages/FamilyCare.tsx';
+import FitnessFood from './pages/FitnessFood.tsx';
+import PsychChat from './pages/PsychChat.tsx';
+import Community from './pages/Community.tsx';
+import AdminDashboard from './pages/Admin.tsx';
+import Sidebar from './components/Sidebar.tsx';
+import Navigation from './components/Navigation.tsx';
 
 type View = 'login' | 'signup' | 'survey' | 'dashboard' | 'skin' | 'family' | 'fitness' | 'psych' | 'community' | 'admin' | 'profile';
 
@@ -26,7 +25,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Mock Databases (In a real app, these would be in a backend)
   const [articles, setArticles] = useState<Article[]>([
     {
       id: '1',
@@ -66,7 +64,6 @@ const App: React.FC = () => {
 
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
-  // Persistent storage simulation
   useEffect(() => {
     const saved = localStorage.getItem('nestgirl_user');
     if (saved) {
