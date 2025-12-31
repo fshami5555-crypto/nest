@@ -2,7 +2,7 @@
 import { 
   collection, doc, setDoc, getDoc, getDocs, 
   query, addDoc, onSnapshot, orderBy,
-  updateDoc, arrayUnion
+  updateDoc, arrayUnion, deleteDoc
 } from "firebase/firestore";
 import { db } from "../firebase.ts";
 import { UserProfile, Article, CommunityPost, Comment } from "../types.ts";
@@ -59,10 +59,25 @@ export const getAllUsersFromDB = async () => {
   }
 };
 
+export const deleteUserFromDB = async (phone: string) => {
+  try {
+    const docRef = doc(db, "users", phone);
+    await deleteDoc(docRef);
+  } catch (e) {
+    console.error("Error deleting user:", e);
+    throw e;
+  }
+};
+
 // Articles
 export const addArticleToDB = async (article: Article) => {
   try {
-    await addDoc(collection(db, "articles"), { ...article, createdAt: Date.now() });
+    await addDoc(collection(db, "articles"), { 
+      ...article, 
+      createdAt: Date.now(),
+      likes: 0,
+      comments: []
+    });
   } catch (e) {
     console.error("Error adding article:", e);
   }
@@ -79,6 +94,28 @@ export const listenToArticles = (callback: (articles: Article[]) => void, onErro
       if (onError) onError(error);
     }
   );
+};
+
+export const addCommentToArticle = async (articleId: string, comment: Comment) => {
+  try {
+    const docRef = doc(db, "articles", articleId);
+    await updateDoc(docRef, {
+      comments: arrayUnion(comment)
+    });
+  } catch (e) {
+    console.error("Error adding comment to article:", e);
+  }
+};
+
+export const likeArticleInDB = async (articleId: string, currentLikes: number) => {
+  try {
+    const docRef = doc(db, "articles", articleId);
+    await updateDoc(docRef, {
+      likes: currentLikes + 1
+    });
+  } catch (e) {
+    console.error("Error liking article:", e);
+  }
 };
 
 // Community

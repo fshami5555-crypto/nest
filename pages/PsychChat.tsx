@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Message } from '../types';
 import { Send, Sparkles, Moon, Sun } from 'lucide-react';
 import { getPsychologicalChat } from '../services/geminiService';
+import { saveUserToDB } from '../services/firebaseService';
 
 interface PsychChatProps {
   user: UserProfile;
@@ -11,9 +12,11 @@ interface PsychChatProps {
 }
 
 const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: `مرحباً بكِ يا ${user.name}، كيف حالكِ اليوم؟ هل تشعرين بشعور جيد أم أن هناك ما يزعجكِ؟` }
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    user.chatHistory && user.chatHistory.length > 0 
+    ? user.chatHistory 
+    : [{ role: 'model', text: `مرحباً بكِ يا ${user.name}، كيف حالكِ اليوم؟ هل تشعرين بشعور جيد أم أن هناك ما يزعجكِ؟` }]
+  );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -26,11 +29,12 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
     if (!input.trim() || loading) return;
 
     const userMessage: Message = { role: 'user', text: input };
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setLoading(true);
 
-    // Dynamic Theme Logic: Check for negative sentiment
+    // Dynamic Theme Logic
     const negativeKeywords = ['حزين', 'سيئ', 'متعب', 'اكتئاب', 'زعلان', 'ضيق', 'هم', 'bad', 'sad'];
     const hasNegative = negativeKeywords.some(word => input.toLowerCase().includes(word));
     if (hasNegative) {
@@ -39,9 +43,17 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
       setIsDarkMode(false);
     }
 
-    const responseText = await getPsychologicalChat([...messages, userMessage], user);
-    setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+    const responseText = await getPsychologicalChat(newMessages, user);
+    const finalMessages: Message[] = [...newMessages, { role: 'model', text: responseText }];
+    setMessages(finalMessages);
     setLoading(false);
+
+    // Save to Firebase
+    try {
+      await saveUserToDB({ ...user, chatHistory: finalMessages });
+    } catch (e) {
+      console.error("Failed to save chat history", e);
+    }
   };
 
   return (
@@ -49,9 +61,9 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
       <div className="p-4 border-b flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2">
           <Sparkles className="text-pink-500" />
-          <h2 className="text-xl font-bold">مستشاركِ النفسي</h2>
+          <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>مستشاركِ النفسي</h2>
         </div>
-        <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-black/10">
+        <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full ${isDarkMode ? 'text-yellow-400 hover:bg-white/10' : 'text-indigo-600 hover:bg-black/10'}`}>
           {isDarkMode ? <Sun /> : <Moon />}
         </button>
       </div>
@@ -70,13 +82,13 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
         ))}
         {loading && (
           <div className="flex justify-end">
-            <div className="animate-pulse bg-white p-4 rounded-2xl">جاري التفكير...</div>
+            <div className={`animate-pulse p-4 rounded-2xl ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-400'}`}>جاري التفكير...</div>
           </div>
         )}
         <div ref={endRef} />
       </div>
 
-      <div className="p-4 bg-white/10 backdrop-blur-md">
+      <div className="p-4 bg-transparent">
         <div className="flex gap-2 max-w-4xl mx-auto">
           <input 
             type="text" 
@@ -84,7 +96,7 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="تحدثي إليّ..."
-            className={`flex-1 p-4 rounded-2xl outline-none border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-pink-100'}`}
+            className={`flex-1 p-4 rounded-2xl outline-none border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-pink-100 text-gray-800'}`}
           />
           <button 
             onClick={handleSend}

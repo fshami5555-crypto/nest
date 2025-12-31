@@ -1,6 +1,6 @@
 
-export type MaritalStatus = 'single' | 'married';
-export type MotherhoodStatus = 'pregnant' | 'not_pregnant' | 'mother' | 'none';
+export type MaritalStatus = 'single' | 'married' | 'all';
+export type MotherhoodStatus = 'pregnant' | 'not_pregnant' | 'mother' | 'none' | 'all';
 
 export interface UserProfile {
   name: string;
@@ -16,21 +16,31 @@ export interface UserProfile {
   periodIssues?: string;
   isPeriodActive: boolean;
   periodStartTimestamp?: number;
+  chatHistory?: Message[];
+  savedMealPlan?: any[];
+  mealPlanGoal?: string;
+  // الحقول الجديدة
+  expectedDueDate?: string;
+  babyGender?: 'boy' | 'girl' | 'not_yet';
+  stillGetsPeriod?: boolean;
 }
 
 export interface Article {
-  id: string;
+  id?: string;
   title: string;
   image: string;
   content: string;
   category: 'skin' | 'family' | 'fitness';
-  targetMarital: 'all' | MaritalStatus;
+  targetMarital: MaritalStatus;
   ageRange: [number, number];
-  targetMotherhood: 'all' | MotherhoodStatus;
+  targetMotherhood: MotherhoodStatus;
+  createdAt?: number;
+  likes?: number;
+  comments?: Comment[];
 }
 
 export interface CommunityPost {
-  id: string;
+  id?: string;
   publisherName: string;
   publisherImage: string;
   text: string;

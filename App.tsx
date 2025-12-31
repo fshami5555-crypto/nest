@@ -15,7 +15,7 @@ import Community from './pages/Community.tsx';
 import AdminDashboard from './pages/Admin.tsx';
 import Sidebar from './components/Sidebar.tsx';
 import Navigation from './components/Navigation.tsx';
-import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, getAppSettings } from './services/firebaseService.ts';
+import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, getAppSettings, deleteUserFromDB } from './services/firebaseService.ts';
 import { updateGeminiKey } from './services/geminiService.ts';
 import { AlertCircle } from 'lucide-react';
 
@@ -66,9 +66,14 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const refreshUsers = async () => {
+    const users = await getAllUsersFromDB();
+    setAllUsers(users);
+  };
+
   useEffect(() => {
     if (isAdmin) {
-      getAllUsersFromDB().then(setAllUsers);
+      refreshUsers();
     }
   }, [isAdmin]);
 
@@ -79,6 +84,18 @@ const App: React.FC = () => {
       await saveUserToDB(u);
     } catch (e) {
       setFirebaseError("فشل في حفظ بيانات المستخدم في السحابة.");
+    }
+  };
+
+  const handleDeleteUser = async (phone: string) => {
+    if (window.confirm("هل أنتِ متأكدة من حذف هذا المستخدم نهائياً؟")) {
+      try {
+        await deleteUserFromDB(phone);
+        await refreshUsers();
+        alert("تم حذف المستخدم بنجاح.");
+      } catch (e) {
+        alert("فشل في حذف المستخدم.");
+      }
     }
   };
 
@@ -95,6 +112,7 @@ const App: React.FC = () => {
       users={allUsers} 
       articles={articles} 
       posts={posts}
+      onDeleteUser={handleDeleteUser}
     />;
 
     switch (view) {
