@@ -2,6 +2,12 @@
 export type MaritalStatus = 'single' | 'married' | 'all';
 export type MotherhoodStatus = 'pregnant' | 'not_pregnant' | 'mother' | 'none' | 'all';
 
+export interface AICache {
+  greeting?: { text: string; expiresAt: number };
+  statusAdvice?: { text: string; expiresAt: number; statusType: string };
+  horoscope?: { text: string; expiresAt: number };
+}
+
 export interface UserProfile {
   name: string;
   birthDate: string;
@@ -12,7 +18,7 @@ export interface UserProfile {
   chronicDiseases: string;
   previousSurgeries: string;
   phone: string;
-  nextPeriodDate?: string; // تاريخ كامل بدلاً من رقم اليوم
+  nextPeriodDate?: string; 
   lastPeriodEndDate?: string;
   periodIssues?: string;
   isPeriodActive: boolean;
@@ -25,6 +31,7 @@ export interface UserProfile {
   stillGetsPeriod?: boolean;
   isPostpartum?: boolean;
   postpartumStartTimestamp?: number;
+  aiCache?: AICache;
 }
 
 export interface Article {
@@ -61,4 +68,5 @@ export interface Comment {
 export interface Message {
   role: 'user' | 'model';
   text: string;
+  timestamp: number; // الوقت بالملي ثانية
 }

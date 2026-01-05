@@ -17,7 +17,7 @@ import Sidebar from './components/Sidebar.tsx';
 import Navigation from './components/Navigation.tsx';
 import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, getAppSettings, deleteUserFromDB } from './services/firebaseService.ts';
 import { updateGeminiKey } from './services/geminiService.ts';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Menu, Bell } from 'lucide-react';
 
 type View = 'login' | 'signup' | 'survey' | 'dashboard' | 'skin' | 'family' | 'fitness' | 'psych' | 'community' | 'admin' | 'profile';
 
@@ -34,25 +34,14 @@ const App: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
-    // 1. Initialize Gemini Key from Firebase
     getAppSettings().then(settings => {
       if (settings?.geminiApiKey) {
         updateGeminiKey(settings.geminiApiKey);
       }
     });
 
-    const handleError = (err: any) => {
-      if (err.code === 'permission-denied') {
-        setFirebaseError("خطأ في الصلاحيات: يرجى تحديث قواعد Firestore (Rules).");
-      } else if (err.code === 'not-found') {
-        setFirebaseError("قاعدة البيانات غير موجودة: يرجى إنشاؤها في Firebase Console.");
-      } else {
-        setFirebaseError("فشل الاتصال بـ Cloud Firestore. قد يكون السبب ضعف الإنترنت أو إعدادات المشروع.");
-      }
-    };
-
-    const unsubArticles = listenToArticles(setArticles, handleError);
-    const unsubPosts = listenToPosts(setPosts, handleError);
+    const unsubArticles = listenToArticles(setArticles);
+    const unsubPosts = listenToPosts(setPosts);
     
     const saved = localStorage.getItem('nestgirl_user');
     if (saved) {
@@ -66,16 +55,12 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const refreshUsers = async () => {
-    const users = await getAllUsersFromDB();
-    setAllUsers(users);
-  };
-
+  // منطق التمرير الذكي عند تغيير الصفحة
   useEffect(() => {
-    if (isAdmin) {
-      refreshUsers();
+    if (view !== 'psych') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [isAdmin]);
+  }, [view]);
 
   const saveUserAction = async (u: UserProfile) => {
     setUser(u);
@@ -83,19 +68,7 @@ const App: React.FC = () => {
     try {
       await saveUserToDB(u);
     } catch (e) {
-      setFirebaseError("فشل في حفظ بيانات المستخدم في السحابة.");
-    }
-  };
-
-  const handleDeleteUser = async (phone: string) => {
-    if (window.confirm("هل أنتِ متأكدة من حذف هذا المستخدم نهائياً؟")) {
-      try {
-        await deleteUserFromDB(phone);
-        await refreshUsers();
-        alert("تم حذف المستخدم بنجاح.");
-      } catch (e) {
-        alert("فشل في حذف المستخدم.");
-      }
+      setFirebaseError("فشل في حفظ البيانات سحابياً.");
     }
   };
 
@@ -107,13 +80,7 @@ const App: React.FC = () => {
   };
 
   const renderView = () => {
-    if (isAdmin) return <AdminDashboard 
-      onLogout={handleLogout} 
-      users={allUsers} 
-      articles={articles} 
-      posts={posts}
-      onDeleteUser={handleDeleteUser}
-    />;
+    if (isAdmin) return <AdminDashboard onLogout={handleLogout} users={allUsers} articles={articles} posts={posts} />;
 
     switch (view) {
       case 'login': return <Login setView={setView} setUser={setUser} setIsAdmin={setIsAdmin} />;
@@ -130,39 +97,49 @@ const App: React.FC = () => {
       case 'psych': return <PsychChat user={user!} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
       case 'community': return <Community user={user!} posts={posts} />;
       case 'profile': return (
-        <div className="p-4 pt-20">
+        <div className="p-4 pt-24">
           <h2 className="text-2xl font-bold mb-4 text-pink-600">ملفي الشخصي</h2>
-          <div className="bg-white p-6 rounded-2xl shadow-sm space-y-3 border border-pink-50">
-            <p><strong>الاسم:</strong> {user?.name}</p>
-            <p><strong>تاريخ الميلاد:</strong> {user?.birthDate}</p>
-            <p><strong>الحالة الاجتماعية:</strong> {user?.maritalStatus === 'married' ? 'متزوجة' : 'عزباء'}</p>
-            {user?.maritalStatus === 'married' && <p><strong>الحالة:</strong> {user?.motherhoodStatus}</p>}
-            <p><strong>الطول:</strong> {user?.height} سم</p>
-            <p><strong>الوزن:</strong> {user?.weight} كجم</p>
-            <p><strong>الهاتف:</strong> {user?.phone}</p>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-pink-50">
+            <p className="mb-2"><strong>الاسم:</strong> {user?.name}</p>
+            <p className="mb-2"><strong>تاريخ الميلاد:</strong> {user?.birthDate}</p>
+            <p className="mb-2"><strong>الهاتف:</strong> {user?.phone}</p>
+            <p className="mb-2"><strong>الوزن:</strong> {user?.weight} كجم</p>
           </div>
-          <button onClick={handleLogout} className="w-full mt-6 bg-red-500 text-white p-3 rounded-xl font-bold shadow-lg">تسجيل الخروج</button>
+          <button onClick={handleLogout} className="w-full mt-6 bg-red-500 text-white p-4 rounded-2xl font-bold shadow-lg">تسجيل الخروج</button>
         </div>
       );
       default: return <Dashboard user={user!} onUpdateUser={saveUserAction} setView={setView} setIsSidebarOpen={setIsSidebarOpen} />;
     }
   };
 
+  const showNavigation = !['login', 'signup', 'survey'].includes(view) && !isAdmin;
+
   return (
     <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-pink-50 text-gray-800'}`}>
       {firebaseError && (
-        <div className="fixed top-4 left-4 right-4 z-[200] bg-red-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
+        <div className="fixed top-20 left-4 right-4 z-[200] bg-red-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3">
           <AlertCircle />
-          <div className="text-sm font-bold">
-            {firebaseError}
-            <p className="text-[10px] font-normal mt-1 underline">تأكدي من تفعيل Firestore وقواعد الحماية في لوحة تحكم Firebase.</p>
-          </div>
+          <span className="text-sm font-bold">{firebaseError}</span>
           <button onClick={() => setFirebaseError(null)} className="mr-auto font-bold">X</button>
         </div>
       )}
       
-      {!['login', 'signup', 'survey'].includes(view) && !isAdmin && (
+      {showNavigation && (
         <>
+          {/* الشريط العلوي الثابت */}
+          <header className={`fixed top-0 left-0 right-0 z-[110] px-4 py-3 border-b backdrop-blur-md flex items-center justify-between transition-colors duration-500 ${isDarkMode ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-pink-50'}`}>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-xl shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-pink-400 hover:bg-gray-700' : 'bg-white text-pink-500 hover:bg-pink-50'}`}>
+                <Menu size={24} />
+              </button>
+              <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Logo" className="w-10 h-10 rounded-lg" />
+              <span className={`font-bold text-pink-600 hidden sm:inline`}>Nestgirl</span>
+            </div>
+            <button className={`p-2 rounded-xl shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-pink-400' : 'bg-white text-pink-500'}`}>
+              <Bell size={24} />
+            </button>
+          </header>
+
           <Sidebar 
             isOpen={isSidebarOpen} 
             setOpen={setIsSidebarOpen} 
@@ -172,7 +149,8 @@ const App: React.FC = () => {
           <Navigation currentView={view} setView={setView} />
         </>
       )}
-      <main className="pb-24">
+
+      <main className={`${showNavigation ? 'pt-4' : ''} pb-24`}>
         {renderView()}
       </main>
     </div>
