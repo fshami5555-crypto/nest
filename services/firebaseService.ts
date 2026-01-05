@@ -2,15 +2,25 @@
 import { 
   collection, doc, setDoc, getDoc, getDocs, 
   query, addDoc, onSnapshot, orderBy,
-  updateDoc, arrayUnion, deleteDoc
+  updateDoc, arrayUnion, deleteDoc,
+  enableIndexedDbPersistence
 } from "firebase/firestore";
 import { db } from "../firebase.ts";
 import { UserProfile, Article, CommunityPost, Comment } from "../types.ts";
 
-/**
- * Helper to remove undefined values from objects as Firestore doesn't support them.
- */
+// محاولة تفعيل ميزة العمل دون اتصال
+if (typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+    } else if (err.code === 'unimplemented') {
+      console.warn("The current browser doesn't support persistence features.");
+    }
+  });
+}
+
 const cleanData = (data: any) => {
+  if (!data) return data;
   const cleaned = { ...data };
   Object.keys(cleaned).forEach(key => {
     if (cleaned[key] === undefined) {
@@ -22,7 +32,7 @@ const cleanData = (data: any) => {
   return cleaned;
 };
 
-// Global Settings (API Keys, etc.)
+// Global Settings
 export const saveAppSettings = async (settings: { geminiApiKey: string }) => {
   try {
     await setDoc(doc(db, "settings", "config"), cleanData(settings));
@@ -35,10 +45,11 @@ export const saveAppSettings = async (settings: { geminiApiKey: string }) => {
 export const getAppSettings = async () => {
   try {
     const docRef = doc(db, "settings", "config");
+    // محاولة جلب الوثيقة مع معالجة حالة الـ offline
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() as { geminiApiKey: string } : null;
-  } catch (e) {
-    console.error("Error getting settings:", e);
+  } catch (e: any) {
+    console.warn("Could not fetch settings (probably offline):", e.message);
     return null;
   }
 };
@@ -46,7 +57,6 @@ export const getAppSettings = async () => {
 // Users
 export const saveUserToDB = async (user: UserProfile) => {
   try {
-    // Crucial: remove undefined values before sending to Firestore
     const dataToSave = cleanData(user);
     await setDoc(doc(db, "users", user.phone), dataToSave);
   } catch (e) {
@@ -60,8 +70,8 @@ export const getUserFromDB = async (phone: string) => {
     const docRef = doc(db, "users", phone);
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() as UserProfile : null;
-  } catch (e) {
-    console.error("Error getting user:", e);
+  } catch (e: any) {
+    console.warn("Could not fetch user from DB (offline/error):", e.message);
     return null;
   }
 };
@@ -107,7 +117,7 @@ export const listenToArticles = (callback: (articles: Article[]) => void, onErro
       callback(articles);
     },
     (error) => {
-      console.error("Articles Listener Error:", error);
+      console.warn("Articles listener issue:", error);
       if (onError) onError(error);
     }
   );
@@ -157,7 +167,7 @@ export const listenToPosts = (callback: (posts: CommunityPost[]) => void, onErro
       callback(posts);
     },
     (error) => {
-      console.error("Posts Listener Error:", error);
+      console.warn("Posts listener issue:", error);
       if (onError) onError(error);
     }
   );

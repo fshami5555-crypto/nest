@@ -1,6 +1,6 @@
 
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -13,6 +13,12 @@ const firebaseConfig = {
   measurementId: "G-LMFH8WMWYN"
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// تهيئة التطبيق مرة واحدة فقط
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// تهيئة Firestore مع تفعيل Long Polling لتجاوز قيود الشبكة
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
+
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;

@@ -23,8 +23,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
   const [loadingAdvice, setLoadingAdvice] = useState(false);
   const [loadingHoroscope, setLoadingHoroscope] = useState(false);
 
+  const safeParseDate = (dateStr: string | undefined) => {
+    if (!dateStr) return new Date(NaN);
+    // Safari-friendly date parsing
+    const d = new Date(dateStr.replace(/-/g, '/'));
+    return isNaN(d.getTime()) ? new Date(NaN) : d;
+  };
+
   const zodiacInfo = useMemo(() => {
-    const date = new Date(user.birthDate);
+    const date = safeParseDate(user.birthDate);
+    if (isNaN(date.getTime())) return { name: "غير معروف", icon: "✨" };
+    
     const day = date.getDate();
     const month = date.getMonth() + 1;
     if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return { name: "الحمل", icon: "♈" };
@@ -50,7 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
           const data = await res.json();
           setWeather({ temp: Math.round(data.current_weather.temperature), code: data.current_weather.weathercode });
         } catch (e) {}
-      });
+      }, () => {});
     }
     return () => clearInterval(timer);
   }, []);
@@ -64,9 +73,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
       return { type: 'postpartum', title: `يومكِ الـ ${diffDays} في النفاس`, subtitle: `الحمد لله على سلامتكِ وسلامة مولودكِ`, buttonText: 'أنهيت فترة النفاس ✨', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', icon: <Star size={20} className="text-white" /> };
     }
     if (user.motherhoodStatus === 'pregnant' && user.expectedDueDate) {
-      const due = new Date(user.expectedDueDate.replace(/-/g, '/'));
-      const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return { type: 'pregnant', title: diffDays < 0 ? `تأخرت الولادة ${Math.abs(diffDays)} يوم` : `باقي ${diffDays} يوم للولادة`, subtitle: `رحلة سعيدة يا ماما، اهتمي بنفسكِ`, buttonText: 'قمت بالإنجاب 👶', gradient: 'bg-gradient-to-br from-blue-400 to-indigo-500', icon: <Baby size={20} className="text-white" /> };
+      const due = safeParseDate(user.expectedDueDate);
+      if (!isNaN(due.getTime())) {
+        const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return { type: 'pregnant', title: diffDays < 0 ? `تأخرت الولادة ${Math.abs(diffDays)} يوم` : `باقي ${diffDays} يوم للولادة`, subtitle: `رحلة سعيدة يا ماما، اهتمي بنفسكِ`, buttonText: 'قمت بالإنجاب 👶', gradient: 'bg-gradient-to-br from-blue-400 to-indigo-500', icon: <Baby size={20} className="text-white" /> };
+      }
     }
     if (user.isPeriodActive && user.periodStartTimestamp) {
       const start = new Date(user.periodStartTimestamp);
@@ -75,10 +86,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onUpdateUser, setView, setI
       return { type: 'period_active', title: remaining > 0 ? `باقي ${remaining} أيام وتنتهي` : `اليوم الـ ${diffDays} للدورة`, subtitle: 'اهتمي بصحتكِ، التدفئة والراحة مهمة', buttonText: 'انتهت الدورة', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', icon: <Info size={16} className="text-white" /> };
     }
     if (user.nextPeriodDate) {
-      const next = new Date(user.nextPeriodDate.replace(/-/g, '/'));
-      const diffDays = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 0) return { type: 'late', title: diffDays === 0 ? 'الموعد المتوقع اليوم' : `تأخرت الدورة ${Math.abs(diffDays)} يوم`, subtitle: 'يرجى مراقبة حالتكِ الصحية والتوتر', buttonText: 'بدأت الدورة لدي', gradient: 'bg-gradient-to-br from-red-600 to-rose-700', icon: <AlertCircle size={16} className="text-white" /> };
-      return { type: 'normal', title: `باقي ${diffDays} يوم للدورة`, subtitle: 'فترة النشاط والإنجاز والجمال', buttonText: 'بدأت الدورة لدي', gradient: 'bg-gradient-to-br from-pink-400 to-rose-500', icon: <Heart size={16} /> };
+      const next = safeParseDate(user.nextPeriodDate);
+      if (!isNaN(next.getTime())) {
+        const diffDays = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) return { type: 'late', title: diffDays === 0 ? 'الموعد المتوقع اليوم' : `تأخرت الدورة ${Math.abs(diffDays)} يوم`, subtitle: 'يرجى مراقبة حالتكِ الصحية والتوتر', buttonText: 'بدأت الدورة لدي', gradient: 'bg-gradient-to-br from-red-600 to-rose-700', icon: <AlertCircle size={16} className="text-white" /> };
+        return { type: 'normal', title: `باقي ${diffDays} يوم للدورة`, subtitle: 'فترة النشاط والإنجاز والجمال', buttonText: 'بدأت الدورة لدي', gradient: 'bg-gradient-to-br from-pink-400 to-rose-500', icon: <Heart size={16} /> };
+      }
     }
     return { type: 'normal', title: 'يوم سعيد لكِ', subtitle: 'يوم جديد مليء بالفرص', buttonText: 'بدأت الدورة لدي', gradient: 'bg-gradient-to-br from-pink-400 to-rose-500', icon: <Heart size={16} /> };
   }, [user, currentTime]);

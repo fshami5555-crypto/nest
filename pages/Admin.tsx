@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Article, CommunityPost } from '../types.ts';
-import { Users, Heart, Baby, Utensils, Share2, LogOut, Plus, CheckCircle, Cpu, Key, Save, X, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { addArticleToDB, addPostToDB, addCommentToPost, saveAppSettings, getAppSettings } from '../services/firebaseService.ts';
+import { Users, Heart, Baby, Utensils, Share2, LogOut, Plus, CheckCircle, Cpu, Key, Save, X, Image as ImageIcon, Trash2, MessageCircle } from 'lucide-react';
+import { addArticleToDB, addPostToDB, addCommentToPost, saveAppSettings, getAppSettings, deleteUserFromDB } from '../services/firebaseService.ts';
 import { updateGeminiKey } from '../services/geminiService.ts';
 
 interface AdminProps {
@@ -58,6 +58,7 @@ const AdminDashboard: React.FC<AdminProps> = ({ onLogout, users, articles, posts
     await addArticleToDB({ ...newArticle, category } as Article);
     alert("تم نشر المقال بنجاح!");
     setShowModal(null);
+    setNewArticle({ title: '', image: '', content: '', targetMarital: 'all', targetMotherhood: 'all', ageRange: [12, 60] });
   };
 
   const handleAddPost = async () => {
@@ -65,6 +66,7 @@ const AdminDashboard: React.FC<AdminProps> = ({ onLogout, users, articles, posts
     await addPostToDB(newPost);
     alert("تم نشر البوست!");
     setShowModal(null);
+    setNewPost({ publisherName: 'إدارة Nestgirl', publisherImage: 'https://i.ibb.co/gLTJ5VMS/image.png', text: '' });
   };
 
   const handleAdminReply = async (postId: string) => {
@@ -77,6 +79,32 @@ const AdminDashboard: React.FC<AdminProps> = ({ onLogout, users, articles, posts
     });
     setAdminReplyText('');
     setActivePostForReply(null);
+  };
+
+  const renderArticlesList = (category: 'skin' | 'family' | 'fitness') => {
+    const filtered = articles.filter(a => a.category === category);
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">المقالات ({filtered.length})</h2>
+          <button onClick={() => setShowModal('article')} className="bg-pink-500 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg"><Plus size={18} /> إضافة مقال</button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filtered.map(a => (
+            <div key={a.id} className="bg-white p-4 rounded-2xl shadow-sm border flex gap-4">
+              <img src={a.image} className="w-20 h-20 rounded-xl object-cover" />
+              <div className="flex-1">
+                <h4 className="font-bold line-clamp-1">{a.title}</h4>
+                <p className="text-xs text-gray-500 line-clamp-2 mt-1">{a.content}</p>
+                <div className="flex gap-2 mt-2">
+                  <span className="text-[10px] bg-pink-50 text-pink-600 px-2 py-1 rounded">{a.targetMarital === 'all' ? 'الكل' : (a.targetMarital === 'single' ? 'عازبات' : 'متزوجات')}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -142,8 +170,45 @@ const AdminDashboard: React.FC<AdminProps> = ({ onLogout, users, articles, posts
                       </td>
                     </tr>
                   ))}
+                  {users.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-gray-400">لا يوجد مستخدمون مسجلون بعد.</td></tr>}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {tab === 'skin' && renderArticlesList('skin')}
+        {tab === 'family' && renderArticlesList('family')}
+        {tab === 'fitness' && renderArticlesList('fitness')}
+
+        {tab === 'community' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">إدارة المجتمع ({posts.length})</h2>
+              <button onClick={() => setShowModal('post')} className="bg-indigo-500 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg"><Plus size={18} /> إضافة بوست إدارة</button>
+            </div>
+            <div className="space-y-4">
+              {posts.map(post => (
+                <div key={post.id} className="bg-white p-6 rounded-3xl shadow-sm border">
+                  <div className="flex items-center gap-3 mb-3">
+                    <img src={post.publisherImage} className="w-8 h-8 rounded-full" />
+                    <span className="font-bold text-sm">{post.publisherName}</span>
+                    <span className="text-[10px] text-gray-400 mr-auto">{new Date(post.timestamp).toLocaleString('ar-EG')}</span>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-4">{post.text}</p>
+                  <div className="flex items-center gap-4 text-xs font-bold text-gray-400 border-t pt-3">
+                    <span>{post.likes} إعجاب</span>
+                    <span>{post.comments?.length || 0} تعليق</span>
+                    <button onClick={() => setActivePostForReply(activePostForReply === post.id ? null : post.id!)} className="text-pink-500 flex items-center gap-1 mr-auto"><MessageCircle size={14} /> الرد كإدارة</button>
+                  </div>
+                  {activePostForReply === post.id && (
+                    <div className="mt-4 flex gap-2">
+                      <input type="text" value={adminReplyText} onChange={e => setAdminReplyText(e.target.value)} placeholder="اكتب رد الإدارة هنا..." className="flex-1 p-2 bg-pink-50 rounded-xl border border-pink-100 outline-none text-sm" />
+                      <button onClick={() => handleAdminReply(post.id!)} className="bg-pink-500 text-white px-4 rounded-xl font-bold shadow-sm">إرسال</button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -185,18 +250,43 @@ const AdminDashboard: React.FC<AdminProps> = ({ onLogout, users, articles, posts
             </div>
           </div>
         )}
-        
-        {/* البقية تبقى كما هي (Skin, Family, Fitness) مع اختصار العرض هنا للسرعة */}
       </div>
       
       {/* Modals for Articles/Posts */}
       {showModal === 'article' && <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] p-8">
-            <h3 className="text-xl font-bold mb-6">إضافة مقال</h3>
-            <input className="w-full p-4 mb-4 bg-gray-50 rounded-2xl" placeholder="العنوان" value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} />
-            <textarea className="w-full p-4 mb-4 bg-gray-50 rounded-2xl h-40" placeholder="المحتوى" value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})}></textarea>
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] p-8 overflow-y-auto max-h-[90vh]">
+            <h3 className="text-xl font-bold mb-6">إضافة مقال جديد ({tab === 'skin' ? 'بشرة' : (tab === 'family' ? 'أسرة' : 'رشاقة')})</h3>
+            <div className="space-y-4">
+              <input className="w-full p-4 bg-gray-50 rounded-2xl border outline-none" placeholder="عنوان المقال" value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} />
+              <input className="w-full p-4 bg-gray-50 rounded-2xl border outline-none" placeholder="رابط صورة الغلاف" value={newArticle.image} onChange={e => setNewArticle({...newArticle, image: e.target.value})} />
+              <textarea className="w-full p-4 bg-gray-50 rounded-2xl h-40 border outline-none" placeholder="محتوى المقال التفصيلي..." value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})}></textarea>
+              <div className="grid grid-cols-2 gap-4">
+                <select className="p-3 bg-gray-50 border rounded-xl outline-none" value={newArticle.targetMarital} onChange={e => setNewArticle({...newArticle, targetMarital: e.target.value as any})}>
+                  <option value="all">كل الفئات الاجتماعية</option>
+                  <option value="single">للعازبات</option>
+                  <option value="married">للمتزوجات</option>
+                </select>
+                <select className="p-3 bg-gray-50 border rounded-xl outline-none" value={newArticle.targetMotherhood} onChange={e => setNewArticle({...newArticle, targetMotherhood: e.target.value as any})}>
+                  <option value="all">كل حالات الأمومة</option>
+                  <option value="none">بدون أطفال</option>
+                  <option value="pregnant">للحوامل</option>
+                  <option value="mother">للأمهات</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-8">
+              <button onClick={handleAddArticle} className="flex-1 bg-pink-500 text-white p-4 rounded-2xl font-bold shadow-lg">نشر المقال</button>
+              <button onClick={() => setShowModal(null)} className="flex-1 bg-gray-200 p-4 rounded-2xl font-bold">إلغاء</button>
+            </div>
+          </div>
+      </div>}
+
+      {showModal === 'post' && <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] p-8">
+            <h3 className="text-xl font-bold mb-6 text-indigo-600 flex items-center gap-2"><Share2 /> إضافة منشور إدارة للمجتمع</h3>
+            <textarea className="w-full p-4 bg-gray-50 rounded-2xl h-40 border outline-none mb-4" placeholder="اكتبي شيئاً يهم المجتمع..." value={newPost.text} onChange={e => setNewPost({...newPost, text: e.target.value})}></textarea>
             <div className="flex gap-2">
-              <button onClick={handleAddArticle} className="flex-1 bg-pink-500 text-white p-4 rounded-2xl font-bold">نشر</button>
+              <button onClick={handleAddPost} className="flex-1 bg-indigo-500 text-white p-4 rounded-2xl font-bold shadow-lg">نشر للمجتمع</button>
               <button onClick={() => setShowModal(null)} className="flex-1 bg-gray-200 p-4 rounded-2xl font-bold">إلغاء</button>
             </div>
           </div>

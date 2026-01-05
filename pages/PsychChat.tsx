@@ -14,7 +14,7 @@ interface PsychChatProps {
 const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }) => {
   const [messages, setMessages] = useState<Message[]>(
     user.chatHistory && user.chatHistory.length > 0 
-    ? user.chatHistory 
+    ? user.chatHistory.map(m => ({ ...m, timestamp: m.timestamp || Date.now() })) 
     : [{ 
         role: 'model', 
         text: `يا هلا بيكِ يا ${user.name}.. نورتي مكانكِ الصغير ✨ كيفك اليوم؟ حاسة حالك رايقة ولا فيه شي شاغل بالك؟ احكي لي، أنا هون بسمعك بكل قلبي.`,
@@ -33,16 +33,19 @@ const PsychChat: React.FC<PsychChatProps> = ({ user, isDarkMode, setIsDarkMode }
     return () => clearTimeout(timer);
   }, [messages]);
 
-  const formatMessageTime = (ts: number) => {
+  const formatMessageTime = (ts: number | undefined) => {
+    const date = new Date(ts || Date.now());
+    if (isNaN(date.getTime())) return '--:--';
     return new Intl.DateTimeFormat('ar-EG', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
-    }).format(new Date(ts));
+    }).format(date);
   };
 
-  const formatMessageDate = (ts: number) => {
-    const d = new Date(ts);
+  const formatMessageDate = (ts: number | undefined) => {
+    const d = new Date(ts || Date.now());
+    if (isNaN(d.getTime())) return 'التاريخ غير معروف';
     const today = new Date();
     if (d.toDateString() === today.toDateString()) return 'اليوم';
     return d.toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'short' });

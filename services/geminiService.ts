@@ -65,8 +65,20 @@ export const getStatusSpecificAdvice = async (user: UserProfile, statusType: str
 };
 
 export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
-  const prompt = `صمم جدول غذائي أسبوعي (ساعة، وجبة، وصف) لهدف ${goal} لمستخدمة بوزن ${user.weight}. النتيجة JSON حصراً.`;
-  const result = await callOpenRouter([{ role: "user", content: prompt }], "You are a nutrition expert. Return valid JSON only.", "json");
+  const prompt = `أنت خبير تغذية متخصص. صمم جدولاً غذائياً أسبوعياً شاملاً لمستخدمة تهدف لـ ${goal === 'lose' ? 'خسارة الوزن' : goal === 'gain' ? 'زيادة الوزن' : 'المحافظة على الوزن'} بوزن ${user.weight} كجم.
+  الجدول يجب أن يكون JSON حصراً بتنسيق Array يحتوي على 7 أيام.
+  لكل يوم (day: السبت..الجمعة)، يجب توفير 5 وجبات (meals): (فطور، سناك 1، غداء، سناك 2، عشاء).
+  لكل وجبة، يجب توفير:
+  - type: نوع الوجبة.
+  - title: اسم الوجبة.
+  - description: وصف بسيط.
+  - ingredients: مصفوفة من المكونات.
+  - instructions: طريقة التحضير بخطوات.
+  - calories: عدد السعرات الحرارية كـ Number.
+  - macros: { protein: number, carbs: number, fat: number } بالجرام.
+  النتيجة JSON حصراً بدون أي نص خارجي.`;
+  
+  const result = await callOpenRouter([{ role: "user", content: prompt }], "You are a senior nutrition expert. Return valid JSON only.", "json");
   try {
     if (!result) return null;
     const jsonString = result.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -80,7 +92,6 @@ export const getPsychologicalChat = async (messages: Message[], user: UserProfil
     content: m.text 
   }));
 
-  // بناء سياق كامل للمستخدم من ملفه الشخصي
   const userContext = `
     معلومات المستخدمة الكاملة:
     - الاسم: ${user.name}
@@ -105,13 +116,10 @@ export const getPsychologicalChat = async (messages: Message[], user: UserProfil
 
     قواعد التعامل:
     1. تكلمي بلهجة عامية ودودة ودافئة (عامية بيضاء). كأنكِ جالسة معها فعلياً.
-    2. استخدمي المعلومات السابقة بذكاء (مثلاً: إذا كانت تعاني من مرض مزمن أو كانت حاملاً، اسألي عن صحتها في هذا الجانب بشكل طبيعي).
-    3. أسلوبكِ يجب أن يكون "مهتم جداً بالتفاصيل": لا تكتفي برد قصير، بل اسألي أسئلة شخصية عن يومها، مشاعرها، أو تفاصيل صغيرة ذكرتها لكي تشعر أنكِ مهتمة بها فعلاً ولستِ مجرد آلة.
-    4. إذا اشتكت من وزنها أو حالتها الصحية، شجعيها بناءً على بياناتها (طولها ووزنها) بأسلوب الصديقة المحفزة.
-    5. في نهاية كل رد، اسألي سؤالاً استقصائياً ودوداً يفتح باباً جديداً للفضفضة.
-    6. الذاكرة: تذكري دائماً ما قالته في الرسائل السابقة وارجعي له (مثلاً: "قبل شوي قلتي إنك تعبانة، الحين صرتي أحسن؟").
-    
-    ممنوع: الأسلوب الرسمي، إعطاء وعظ جامد، أو قول أنكِ ذكاء اصطناعي. كوني إنسانة طبيعية تماماً.
+    2. استخدمي المعلومات السابقة بذكاء.
+    3. أسلوبكِ يجب أن يكون "مهتم جداً بالتفاصيل".
+    4. في نهاية كل رد، اسألي سؤالاً استقصائياً ودوداً.
+    5. الذاكرة: تذكري دائماً ما قالته في الرسائل السابقة.
   `;
 
   return await callOpenRouter(formatted, systemPrompt) || "أنا معكِ يا قلبي، فضفضي لي أكثر، شو حاسة الحين؟";

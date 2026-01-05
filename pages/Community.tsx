@@ -61,7 +61,7 @@ const Community: React.FC<CommunityProps> = ({ user, posts }) => {
                   className="flex items-center gap-1 hover:text-blue-500"
                 >
                   <MessageCircle size={20} />
-                  <span className="text-sm font-bold">{post.comments.length}</span>
+                  <span className="text-sm font-bold">{post.comments?.length || 0}</span>
                 </button>
                 <button className="flex items-center gap-1 hover:text-green-500 mr-auto">
                   <Share2 size={20} />
@@ -70,9 +70,9 @@ const Community: React.FC<CommunityProps> = ({ user, posts }) => {
             </div>
 
             {/* Comments Section */}
-            {(activeCommentPost === post.id || post.comments.length > 0) && (
+            {(activeCommentPost === post.id || (post.comments?.length || 0) > 0) && (
               <div className="bg-gray-50 p-4 space-y-3">
-                {post.comments.map(c => (
+                {post.comments?.map(c => (
                   <div key={c.id} className={`flex gap-2 ${c.isAdminReply ? 'mr-6' : ''}`}>
                     <div className={`p-3 rounded-2xl text-sm ${c.isAdminReply ? 'bg-pink-100 border border-pink-200' : 'bg-white border border-gray-100'}`}>
                       <p className="font-bold text-xs mb-1 text-pink-600">{c.userName}</p>

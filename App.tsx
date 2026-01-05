@@ -43,6 +43,9 @@ const App: React.FC = () => {
     const unsubArticles = listenToArticles(setArticles);
     const unsubPosts = listenToPosts(setPosts);
     
+    // تحميل المستخدمين للوحة الإدارة
+    getAllUsersFromDB().then(setAllUsers);
+
     const saved = localStorage.getItem('nestgirl_user');
     if (saved) {
       setUser(JSON.parse(saved));
@@ -67,6 +70,8 @@ const App: React.FC = () => {
     localStorage.setItem('nestgirl_user', JSON.stringify(u));
     try {
       await saveUserToDB(u);
+      // تحديث القائمة للمسؤول أيضاً
+      getAllUsersFromDB().then(setAllUsers);
     } catch (e) {
       setFirebaseError("فشل في حفظ البيانات سحابياً.");
     }
@@ -79,8 +84,22 @@ const App: React.FC = () => {
     setView('login');
   };
 
+  const calculateAge = (birthDate: string | undefined) => {
+    if (!birthDate) return 'غير معروف';
+    const d = new Date(birthDate);
+    if (isNaN(d.getTime())) return 'غير معروف';
+    return new Date().getFullYear() - d.getFullYear();
+  };
+
+  const handleDeleteUser = async (phone: string) => {
+    if (window.confirm("هل أنت متأكد من حذف هذا المستخدم نهائياً؟")) {
+      await deleteUserFromDB(phone);
+      setAllUsers(prev => prev.filter(u => u.phone !== phone));
+    }
+  };
+
   const renderView = () => {
-    if (isAdmin) return <AdminDashboard onLogout={handleLogout} users={allUsers} articles={articles} posts={posts} />;
+    if (isAdmin) return <AdminDashboard onLogout={handleLogout} users={allUsers} articles={articles} posts={posts} onDeleteUser={handleDeleteUser} />;
 
     switch (view) {
       case 'login': return <Login setView={setView} setUser={setUser} setIsAdmin={setIsAdmin} />;
@@ -102,6 +121,7 @@ const App: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-pink-50">
             <p className="mb-2"><strong>الاسم:</strong> {user?.name}</p>
             <p className="mb-2"><strong>تاريخ الميلاد:</strong> {user?.birthDate}</p>
+            <p className="mb-2"><strong>العمر:</strong> {calculateAge(user?.birthDate)} سنة</p>
             <p className="mb-2"><strong>الهاتف:</strong> {user?.phone}</p>
             <p className="mb-2"><strong>الوزن:</strong> {user?.weight} كجم</p>
           </div>
