@@ -1,115 +1,91 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfile, Message } from "../types";
 
-// Variable to store the key in-memory during operation
-let dynamicApiKey = process.env.API_KEY || '';
+// المفتاح الافتراضي (الذي زودتنا به) أو المفتاح المجلوب من قاعدة البيانات
+let dynamicApiKey = "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";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export const updateGeminiKey = (newKey: string) => {
-  dynamicApiKey = newKey;
+  if (newKey) dynamicApiKey = newKey;
 };
 
-const getAIInstance = () => {
-  return new GoogleGenAI({ apiKey: dynamicApiKey });
+/**
+ * دالة مساعدة لإجراء الطلبات لـ OpenRouter
+ */
+const callOpenRouter = async (messages: any[], systemPrompt?: string, responseFormat?: string) => {
+  if (!dynamicApiKey) return null;
+
+  const payload: any = {
+    model: "google/gemini-2.0-flash-001", // استخدام أحدث موديل جيميناي عبر OpenRouter
+    messages: [
+      ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+      ...messages
+    ],
+    headers: {
+      "HTTP-Referer": "https://nestgirl.app", // اختياري لترتيب التطبيق في OpenRouter
+      "X-Title": "Nestgirl Women App",
+    }
+  };
+
+  if (responseFormat === "json") {
+    payload.response_format = { type: "json_object" };
+  }
+
+  try {
+    const response = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${dynamicApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (error) {
+    console.error("OpenRouter Error:", error);
+    return null;
+  }
 };
 
 export const getDynamicGreeting = async (user: UserProfile) => {
-  if (!dynamicApiKey) return "مرحباً بكِ في Nestgirl!";
-  
   const hour = new Date().getHours();
   const timeContext = hour < 12 ? "الصباح" : "المساء";
   
   const prompt = `أنت مساعد ذكي لتطبيق "Nestgirl" المخصص للنساء. 
   المستخدمة حالياً في وقت ${timeContext}.
-  معلومات المستخدمة:
-  الاسم: ${user.name}
-  الحالة الاجتماعية: ${user.maritalStatus === 'married' ? 'متزوجة' : 'عزباء'}
-  الحالة: ${user.motherhoodStatus}
-  الوزن: ${user.weight} كجم، الطول: ${user.height} سم.
-  
-  قم بكتابة تحية قصيرة وملهمة ومناسبة لوقتها وحالتها الحالية. اجعلها ودودة جداً وداعمة. 
-  إذا كانت متزوجة أو أماً، وجه نصيحة سريعة تتعلق بحالتها. لا تزد عن 30 كلمة.`;
+  معلومات المستخدمة: الاسم: ${user.name}، الحالة: ${user.maritalStatus}، الأمومة: ${user.motherhoodStatus}.
+  اكتب تحية قصيرة وملهمة وودودة جداً. لا تزد عن 25 كلمة.`;
 
-  try {
-    const ai = getAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text || "مرحباً بكِ في Nestgirl!";
-  } catch (error) {
-    console.error("Gemini Error:", error);
-    return "يومك سعيد وجميل!";
-  }
+  const result = await callOpenRouter([{ role: "user", content: prompt }]);
+  return result || "يومك سعيد وجميل!";
 };
 
 export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
-  if (!dynamicApiKey) return null;
-
-  const prompt = `بناءً على المعلومات التالية:
-  الوزن: ${user.weight}, الطول: ${user.height}, الهدف: ${goal}.
+  const prompt = `بناءً على: الوزن: ${user.weight}, الطول: ${user.height}, الهدف: ${goal}.
   قم بإنشاء جدول غذائي أسبوعي (من السبت إلى الجمعة).
-  لكل يوم حدد وجبة فطور، غداء، عشاء وسناك مع تحديد وقت تقريبي.
-  اجعل الرد بصيغة JSON.
-  الهدف من الجدول هو: ${goal === 'lose' ? 'تخفيف الوزن' : goal === 'gain' ? 'زيادة الوزن' : 'المحافظة على الوزن'}.`;
+  أريد النتيجة ككائن JSON يحتوي على مصفوفة أيام وكل يوم يحتوي على مصفوفة وجبات (time, type, description).
+  اللغة: العربية.`;
 
+  const result = await callOpenRouter([{ role: "user", content: prompt }], "You are a professional nutritionist expert for women. Return valid JSON only.", "json");
   try {
-    const ai = getAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              day: { type: Type.STRING },
-              meals: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    time: { type: Type.STRING },
-                    type: { type: Type.STRING },
-                    description: { type: Type.STRING }
-                  },
-                  required: ["time", "type", "description"]
-                }
-              }
-            },
-            required: ["day", "meals"]
-          }
-        }
-      }
-    });
-    return JSON.parse(response.text);
-  } catch (error) {
-    console.error("Gemini Error:", error);
+    return result ? JSON.parse(result) : null;
+  } catch {
     return null;
   }
 };
 
 export const getPsychologicalChat = async (messages: Message[], user: UserProfile) => {
-  if (!dynamicApiKey) return "يرجى تهيئة مفتاح API للذكاء الاصطناعي أولاً.";
-
   const systemInstruction = `أنت مستشار نفسي ودود وداعم في تطبيق Nestgirl. 
   هدفنا هو مساعدة المستخدمة ${user.name} على تحسين حالتها النفسية. 
-  إذا كانت تشعر بسوء، كن متعاطفاً جداً واقترح خطوات بسيطة للتحسن. 
-  تحدث باللغة العربية بأسلوب أنثوي وراقي.`;
+  تحدث باللغة العربية بأسلوب أنثوي وراقي ومتعاطف جداً.`;
 
-  try {
-    const ai = getAIInstance();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: messages[messages.length - 1].text,
-      config: {
-        systemInstruction: systemInstruction,
-      }
-    });
-    return response.text;
-  } catch (error) {
-    return "أنا هنا لسماعك دائماً. هل يمكننا تجربة التحدث عن شيء يجعلكِ سعيدة؟";
-  }
+  const formattedMessages = messages.map(m => ({
+    role: m.role === 'model' ? 'assistant' : 'user',
+    content: m.text
+  }));
+
+  const result = await callOpenRouter(formattedMessages, systemInstruction);
+  return result || "أنا هنا لسماعك دائماً. كيف يمكنني مساعدتك؟";
 };
