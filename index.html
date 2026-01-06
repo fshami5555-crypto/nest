@@ -1,61 +1,84 @@
-
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nestgirl</title>
+    <title>Nestgirl | رفيقتكِ الذكية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --pink-primary: #ff85a2;
+        --pink-soft: #fff1f4;
+      }
       body {
         font-family: 'Tajawal', sans-serif;
+        margin: 0;
+        padding: 0;
+        scroll-behavior: smooth;
+        background-color: #fff9fb;
       }
-      .animate-bounce-slow {
-        animation: bounce 3s infinite;
-      }
-      @keyframes bounce {
-        0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
-        50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
-      }
-      @keyframes fade-in-up {
-        0% { opacity: 0; transform: translateY(20px); }
-        100% { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in-up {
-        animation: fade-in-up 1s ease-out forwards;
+      .glass-card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 182, 193, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(255, 182, 193, 0.1);
       }
       .animate-pulse-slow {
         animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
       }
       @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.8; transform: scale(1.05); }
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
       }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      .float { animation: float 6s ease-in-out infinite; }
     </style>
     <script>
+      // تأمين البيئة لـ Gemini SDK
       window.process = { env: { API_KEY: "" } };
     </script>
     <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
     "@google/genai": "https://esm.sh/@google/genai@1.3.0",
     "lucide-react": "https://esm.sh/lucide-react@0.460.0",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
-    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
+    <!-- تحميل Firebase من المصدر الرسمي لضمان عدم وجود "firestore is not available" -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+      
+      const firebaseConfig = {
+        apiKey: "AIzaSyDcOosY_XdKhb5Pu3J4gb7fjq-6x8i0ysw",
+        authDomain: "nest-952ca.firebaseapp.com",
+        projectId: "nest-952ca",
+        storageBucket: "nest-952ca.firebasestorage.app",
+        messagingSenderId: "461454319748",
+        appId: "1:461454319748:web:2691adc006bed888f2e2d1",
+        measurementId: "G-LMFH8WMWYN"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      
+      // تصدير للنافذة العالمية لسهولة الوصول من الملفات الأخرى
+      window.FirebaseDB = db;
+      window.FirebaseApp = app;
+    </script>
   </head>
-  <body class="bg-pink-50 text-gray-800">
+  <body>
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
   </body>

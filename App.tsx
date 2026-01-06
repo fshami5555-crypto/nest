@@ -17,7 +17,7 @@ import AdminDashboard from './pages/Admin.tsx';
 import Sidebar from './components/Sidebar.tsx';
 import Navigation from './components/Navigation.tsx';
 import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, listenToProducts } from './services/firebaseService.ts';
-import { AlertCircle, Menu, Bell, ShoppingCart, Sparkles } from 'lucide-react';
+import { AlertCircle, Menu, Bell, ShoppingCart } from 'lucide-react';
 
 type View = 'login' | 'signup' | 'survey' | 'dashboard' | 'skin' | 'family' | 'fitness' | 'psych' | 'community' | 'admin' | 'profile' | 'store';
 
@@ -29,8 +29,10 @@ const SplashScreen: React.FC = () => (
       <div className="absolute -inset-4 bg-pink-200/50 rounded-full blur-2xl animate-pulse"></div>
       <img src={LOGO_URL} alt="Nestgirl Logo" className="w-48 h-48 object-contain relative z-10 drop-shadow-2xl" />
     </div>
-    <h1 className="text-4xl font-bold text-pink-600 mb-4 animate-fade-in-up">مرحباً بكِ في نست جيرل</h1>
-    <p className="text-gray-500 font-medium animate-fade-in-up delay-200">رفيقتكِ الذكية في كل مراحل حياتكِ ✨</p>
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-4xl font-bold text-pink-600 mb-2">مرحباً بكِ في نست جيرل</h1>
+      <p className="text-gray-500 font-medium">رفيقتكِ الذكية في كل مراحل حياتكِ ✨</p>
+    </div>
     <div className="mt-12 flex gap-2">
       <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></div>
       <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce delay-150"></div>
@@ -54,7 +56,7 @@ const App: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
-    // Splash screen timer: 10 seconds
+    // Splash screen timer: 10 seconds as requested
     const splashTimer = setTimeout(() => {
       setShowSplash(false);
     }, 10000);
@@ -65,10 +67,15 @@ const App: React.FC = () => {
     
     getAllUsersFromDB().then(setAllUsers);
 
-    const saved = localStorage.getItem('nestgirl_user');
-    if (saved) {
-      setUser(JSON.parse(saved));
-      setView('dashboard');
+    try {
+      const saved = localStorage.getItem('nestgirl_user');
+      if (saved) {
+        const parsedUser = JSON.parse(saved);
+        setUser(parsedUser);
+        setView('dashboard');
+      }
+    } catch (e) {
+      console.warn("Error loading saved user", e);
     }
 
     return () => {
