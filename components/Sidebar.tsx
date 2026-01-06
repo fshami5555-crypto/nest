@@ -9,6 +9,8 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
+const LOGO_URL = "https://i.ibb.co/TM561d6q/image.png";
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setOpen, setView, onLogout }) => {
   return (
     <>
@@ -53,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setOpen, setView, onLogout })
           </div>
           
           <div className="mt-20 flex flex-col items-center opacity-30">
-            <img src="https://i.ibb.co/gLTJ5VMS/image.png" className="w-16 mb-2" alt="" />
+            <img src={LOGO_URL} className="w-20 mb-2 object-contain" alt="" />
             <p className="text-[10px]">Nestgirl v1.0.0</p>
           </div>
         </div>

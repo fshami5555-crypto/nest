@@ -1,54 +1,31 @@
 
+import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfile, Message } from "../types";
 
-// المفتاح المزود من قبل المستخدم
-let dynamicApiKey = "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";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+// Fix: Initialize Google GenAI client exclusively using process.env.API_KEY as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const updateGeminiKey = (newKey: string) => {
-  if (newKey) dynamicApiKey = newKey.trim();
-};
-
-const callOpenRouter = async (messages: any[], systemPrompt?: string, responseFormat?: string) => {
-  if (!dynamicApiKey) return null;
-
-  const payload: any = {
-    model: "google/gemini-2.0-flash-001",
-    messages: [
-      ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-      ...messages
-    ],
-    temperature: 0.9
-  };
-
-  try {
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${dynamicApiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://nestgirl.app",
-        "X-Title": "Nestgirl",
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (error) {
-    console.error("OpenRouter API Error:", error);
-    return null;
-  }
-};
+// Fix: Removed dynamicApiKey and updateGeminiKey as API key must not be managed via UI
 
 export const getDailyHoroscope = async (zodiacSign: string, userName: string) => {
-  const prompt = `أنتِ خبيرة في علم الفلك والطاقة الإيجابية. قدمي قراءة يومية قصيرة وملهمة لبرج ${zodiacSign} للمستخدمة ${userName}. ركزي على الحظ، الحب، والعمل. لا تستخدمي لغة سلبية. الحد الأقصى 40 كلمة.`;
-  return await callOpenRouter([{ role: "user", content: prompt }], "You are a professional astrologer and life coach.") || "النجوم تخبركِ أن اليوم هو يوم تألقكِ الخاص!";
+  // Fix: Use ai.models.generateContent with gemini-3-flash-preview for basic text tasks
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `أنتِ خبيرة في علم الفلك والطاقة الإيجابية. قدمي قراءة يومية قصيرة وملهمة لبرج ${zodiacSign} للمستخدمة ${userName}. ركزي على الحظ، الحب، والعمل. لا تستخدمي لغة سلبية. الحد الأقصى 40 كلمة.`,
+    config: {
+      systemInstruction: "You are a professional astrologer and life coach."
+    }
+  });
+  return response.text || "النجوم تخبركِ أن اليوم هو يوم تألقكِ الخاص!";
 };
 
 export const getDynamicGreeting = async (user: UserProfile) => {
-  const prompt = `أنت مساعد Nestgirl. المستخدمة ${user.name}، حالتها ${user.maritalStatus}. اكتب تحية صباحية/مسائية ملهمة قصيرة جداً (أقل من 15 كلمة). بالعامية الودودة.`;
-  return await callOpenRouter([{ role: "user", content: prompt }]) || "يومكِ سعيد ومشرق يا جميلة!";
+  // Fix: Adopt ai.models.generateContent pattern
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `أنت مساعد Nestgirl. المستخدمة ${user.name}، حالتها ${user.maritalStatus}. اكتب تحية صباحية/مسائية ملهمة قصيرة جداً (أقل من 15 كلمة). بالعامية الودودة.`,
+  });
+  return response.text || "يومكِ سعيد ومشرق يا جميلة!";
 };
 
 export const getStatusSpecificAdvice = async (user: UserProfile, statusType: string) => {
@@ -60,38 +37,68 @@ export const getStatusSpecificAdvice = async (user: UserProfile, statusType: str
     default: context = "في وضعها الطبيعي وتبحث عن الوقاية الصحية";
   }
 
-  const prompt = `بصفتكِ خبيرة صحة نسائية، قدمي 3 نصائح ذهبية مختصرة جداً للمستخدمة ${user.name} لأنها ${context}. ركزي على الجانب الجسدي والنفسي. استخدمي لغة أنثوية راقية وعامية خفيفة.`;
-  return await callOpenRouter([{ role: "user", content: prompt }], "You are a senior women's health consultant.") || "اهتمي بشرب الماء والراحة التامة اليوم.";
+  // Fix: Use standard systemInstruction config for context
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `بصفتكِ خبيرة صحة نسائية، قدمي 3 نصائح ذهبية مختصرة جداً للمستخدمة ${user.name} لأنها ${context}. ركزي على الجانب الجسدي والنفسي. استخدمي لغة أنثوية راقية وعامية خفيفة.`,
+    config: {
+      systemInstruction: "You are a senior women's health consultant."
+    }
+  });
+  return response.text || "اهتمي بشرب الماء والراحة التامة اليوم.";
 };
 
 export const getWeeklyMealPlan = async (user: UserProfile, goal: string) => {
-  const prompt = `أنت خبير تغذية متخصص. صمم جدولاً غذائياً أسبوعياً شاملاً لمستخدمة تهدف لـ ${goal === 'lose' ? 'خسارة الوزن' : goal === 'gain' ? 'زيادة الوزن' : 'المحافظة على الوزن'} بوزن ${user.weight} كجم.
-  الجدول يجب أن يكون JSON حصراً بتنسيق Array يحتوي على 7 أيام.
-  لكل يوم (day: السبت..الجمعة)، يجب توفير 5 وجبات (meals): (فطور، سناك 1، غداء، سناك 2، عشاء).
-  لكل وجبة، يجب توفير:
-  - type: نوع الوجبة.
-  - title: اسم الوجبة.
-  - description: وصف بسيط.
-  - ingredients: مصفوفة من المكونات.
-  - instructions: طريقة التحضير بخطوات.
-  - calories: عدد السعرات الحرارية كـ Number.
-  - macros: { protein: number, carbs: number, fat: number } بالجرام.
-  النتيجة JSON حصراً بدون أي نص خارجي.`;
+  // Fix: Implement responseSchema for robust JSON structure as mandated by guidelines
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `أنت خبير تغذية متخصص. صمم جدولاً غذائياً أسبوعياً شاملاً لمستخدمة تهدف لـ ${goal === 'lose' ? 'خسارة الوزن' : goal === 'gain' ? 'زيادة الوزن' : 'المحافظة على الوزن'} بوزن ${user.weight} كجم.`,
+    config: {
+      systemInstruction: "You are a senior nutrition expert. Return valid JSON only.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            day: { type: Type.STRING },
+            meals: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  calories: { type: Type.NUMBER },
+                  macros: {
+                    type: Type.OBJECT,
+                    properties: {
+                      protein: { type: Type.NUMBER },
+                      carbs: { type: Type.NUMBER },
+                      fat: { type: Type.NUMBER }
+                    }
+                  }
+                },
+                propertyOrdering: ["type", "title", "description", "ingredients", "instructions", "calories", "macros"]
+              }
+            }
+          },
+          propertyOrdering: ["day", "meals"]
+        }
+      }
+    }
+  });
   
-  const result = await callOpenRouter([{ role: "user", content: prompt }], "You are a senior nutrition expert. Return valid JSON only.", "json");
   try {
-    if (!result) return null;
-    const jsonString = result.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(jsonString);
+    const text = response.text;
+    return text ? JSON.parse(text) : null;
   } catch { return null; }
 };
 
 export const getPsychologicalChat = async (messages: Message[], user: UserProfile) => {
-  const formatted = messages.map(m => ({ 
-    role: m.role === 'model' ? 'assistant' : 'user', 
-    content: m.text 
-  }));
-
   const userContext = `
     معلومات المستخدمة الكاملة:
     - الاسم: ${user.name}
@@ -108,12 +115,10 @@ export const getPsychologicalChat = async (messages: Message[], user: UserProfil
     - هدف التغذية الحالي: ${user.mealPlanGoal || 'لم يحدد بعد'}
   `;
 
-  const systemPrompt = `
+  const systemInstruction = `
     أنتِ الآن "الصديقة المقربة" (The Bestie) والأخت الكبرى للمستخدمة. 
     لديكِ حق الوصول الكامل لملفها الشخصي لتفهميها بعمق.
-    
     ${userContext}
-
     قواعد التعامل:
     1. تكلمي بلهجة عامية ودودة ودافئة (عامية بيضاء). كأنكِ جالسة معها فعلياً.
     2. استخدمي المعلومات السابقة بذكاء.
@@ -122,5 +127,19 @@ export const getPsychologicalChat = async (messages: Message[], user: UserProfil
     5. الذاكرة: تذكري دائماً ما قالته في الرسائل السابقة.
   `;
 
-  return await callOpenRouter(formatted, systemPrompt) || "أنا معكِ يا قلبي، فضفضي لي أكثر، شو حاسة الحين؟";
+  // Fix: Map messages to standard Gemini content parts and use gemini-3-pro-preview
+  const contents = messages.map(m => ({
+    role: m.role,
+    parts: [{ text: m.text }]
+  }));
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents,
+    config: {
+      systemInstruction
+    }
+  });
+
+  return response.text || "أنا معكِ يا قلبي، فضفضي لي أكثر، شو حاسة الحين؟";
 };

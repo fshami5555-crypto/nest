@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  UserProfile, Article, CommunityPost 
+  UserProfile, Article, CommunityPost, Product 
 } from './types.ts';
 import Login from './pages/Login.tsx';
 import Signup from './pages/Signup.tsx';
@@ -12,16 +12,35 @@ import FamilyCare from './pages/FamilyCare.tsx';
 import FitnessFood from './pages/FitnessFood.tsx';
 import PsychChat from './pages/PsychChat.tsx';
 import Community from './pages/Community.tsx';
+import Store from './pages/Store.tsx';
 import AdminDashboard from './pages/Admin.tsx';
 import Sidebar from './components/Sidebar.tsx';
 import Navigation from './components/Navigation.tsx';
-import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, getAppSettings, deleteUserFromDB } from './services/firebaseService.ts';
-import { updateGeminiKey } from './services/geminiService.ts';
-import { AlertCircle, Menu, Bell } from 'lucide-react';
+import { listenToArticles, listenToPosts, getAllUsersFromDB, saveUserToDB, listenToProducts } from './services/firebaseService.ts';
+import { AlertCircle, Menu, Bell, ShoppingCart, Sparkles } from 'lucide-react';
 
-type View = 'login' | 'signup' | 'survey' | 'dashboard' | 'skin' | 'family' | 'fitness' | 'psych' | 'community' | 'admin' | 'profile';
+type View = 'login' | 'signup' | 'survey' | 'dashboard' | 'skin' | 'family' | 'fitness' | 'psych' | 'community' | 'admin' | 'profile' | 'store';
+
+const LOGO_URL = "https://i.ibb.co/TM561d6q/image.png";
+
+const SplashScreen: React.FC = () => (
+  <div className="fixed inset-0 z-[1000] bg-gradient-to-b from-pink-50 to-white flex flex-col items-center justify-center p-6 text-center">
+    <div className="relative mb-8 animate-pulse-slow">
+      <div className="absolute -inset-4 bg-pink-200/50 rounded-full blur-2xl animate-pulse"></div>
+      <img src={LOGO_URL} alt="Nestgirl Logo" className="w-48 h-48 object-contain relative z-10 drop-shadow-2xl" />
+    </div>
+    <h1 className="text-4xl font-bold text-pink-600 mb-4 animate-fade-in-up">مرحباً بكِ في نست جيرل</h1>
+    <p className="text-gray-500 font-medium animate-fade-in-up delay-200">رفيقتكِ الذكية في كل مراحل حياتكِ ✨</p>
+    <div className="mt-12 flex gap-2">
+      <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"></div>
+      <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce delay-150"></div>
+      <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce delay-300"></div>
+    </div>
+  </div>
+);
 
 const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState(true);
   const [view, setView] = useState<View>('login');
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -31,19 +50,19 @@ const App: React.FC = () => {
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
-    getAppSettings().then(settings => {
-      if (settings?.geminiApiKey) {
-        updateGeminiKey(settings.geminiApiKey);
-      }
-    });
+    // Splash screen timer: 10 seconds
+    const splashTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 10000);
 
     const unsubArticles = listenToArticles(setArticles);
     const unsubPosts = listenToPosts(setPosts);
+    const unsubProducts = listenToProducts(setProducts);
     
-    // تحميل المستخدمين للوحة الإدارة
     getAllUsersFromDB().then(setAllUsers);
 
     const saved = localStorage.getItem('nestgirl_user');
@@ -53,24 +72,18 @@ const App: React.FC = () => {
     }
 
     return () => {
+      clearTimeout(splashTimer);
       unsubArticles();
       unsubPosts();
+      unsubProducts();
     };
   }, []);
-
-  // منطق التمرير الذكي عند تغيير الصفحة
-  useEffect(() => {
-    if (view !== 'psych') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [view]);
 
   const saveUserAction = async (u: UserProfile) => {
     setUser(u);
     localStorage.setItem('nestgirl_user', JSON.stringify(u));
     try {
       await saveUserToDB(u);
-      // تحديث القائمة للمسؤول أيضاً
       getAllUsersFromDB().then(setAllUsers);
     } catch (e) {
       setFirebaseError("فشل في حفظ البيانات سحابياً.");
@@ -84,22 +97,10 @@ const App: React.FC = () => {
     setView('login');
   };
 
-  const calculateAge = (birthDate: string | undefined) => {
-    if (!birthDate) return 'غير معروف';
-    const d = new Date(birthDate);
-    if (isNaN(d.getTime())) return 'غير معروف';
-    return new Date().getFullYear() - d.getFullYear();
-  };
-
-  const handleDeleteUser = async (phone: string) => {
-    if (window.confirm("هل أنت متأكد من حذف هذا المستخدم نهائياً؟")) {
-      await deleteUserFromDB(phone);
-      setAllUsers(prev => prev.filter(u => u.phone !== phone));
-    }
-  };
+  if (showSplash) return <SplashScreen />;
 
   const renderView = () => {
-    if (isAdmin) return <AdminDashboard onLogout={handleLogout} users={allUsers} articles={articles} posts={posts} onDeleteUser={handleDeleteUser} />;
+    if (isAdmin) return <AdminDashboard onLogout={handleLogout} users={allUsers} articles={articles} posts={posts} />;
 
     switch (view) {
       case 'login': return <Login setView={setView} setUser={setUser} setIsAdmin={setIsAdmin} />;
@@ -115,15 +116,13 @@ const App: React.FC = () => {
       case 'fitness': return <FitnessFood user={user!} articles={articles} />;
       case 'psych': return <PsychChat user={user!} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
       case 'community': return <Community user={user!} posts={posts} />;
+      case 'store': return <Store products={products} user={user!} />;
       case 'profile': return (
         <div className="p-4 pt-24">
           <h2 className="text-2xl font-bold mb-4 text-pink-600">ملفي الشخصي</h2>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-pink-50">
             <p className="mb-2"><strong>الاسم:</strong> {user?.name}</p>
-            <p className="mb-2"><strong>تاريخ الميلاد:</strong> {user?.birthDate}</p>
-            <p className="mb-2"><strong>العمر:</strong> {calculateAge(user?.birthDate)} سنة</p>
             <p className="mb-2"><strong>الهاتف:</strong> {user?.phone}</p>
-            <p className="mb-2"><strong>الوزن:</strong> {user?.weight} كجم</p>
           </div>
           <button onClick={handleLogout} className="w-full mt-6 bg-red-500 text-white p-4 rounded-2xl font-bold shadow-lg">تسجيل الخروج</button>
         </div>
@@ -146,13 +145,12 @@ const App: React.FC = () => {
       
       {showNavigation && (
         <>
-          {/* الشريط العلوي الثابت */}
           <header className={`fixed top-0 left-0 right-0 z-[110] px-4 py-3 border-b backdrop-blur-md flex items-center justify-between transition-colors duration-500 ${isDarkMode ? 'bg-gray-900/80 border-gray-800' : 'bg-white/80 border-pink-50'}`}>
             <div className="flex items-center gap-3">
               <button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-xl shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-pink-400 hover:bg-gray-700' : 'bg-white text-pink-500 hover:bg-pink-50'}`}>
                 <Menu size={24} />
               </button>
-              <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Logo" className="w-10 h-10 rounded-lg" />
+              <img src={LOGO_URL} alt="Logo" className="w-10 h-10 rounded-lg object-contain" />
               <span className={`font-bold text-pink-600 hidden sm:inline`}>Nestgirl</span>
             </div>
             <button className={`p-2 rounded-xl shadow-sm transition-colors ${isDarkMode ? 'bg-gray-800 text-pink-400' : 'bg-white text-pink-500'}`}>
@@ -160,13 +158,23 @@ const App: React.FC = () => {
             </button>
           </header>
 
-          <Sidebar 
-            isOpen={isSidebarOpen} 
-            setOpen={setIsSidebarOpen} 
-            setView={setView} 
-            onLogout={handleLogout} 
-          />
+          <Sidebar isOpen={isSidebarOpen} setOpen={setIsSidebarOpen} setView={setView} onLogout={handleLogout} />
           <Navigation currentView={view} setView={setView} />
+
+          <div className="fixed bottom-28 left-6 z-[60] flex flex-col items-center">
+             <div className="relative animate-bounce mb-2">
+                <div className="bg-white px-3 py-1.5 rounded-2xl rounded-bl-none shadow-xl border border-pink-100 whitespace-nowrap">
+                   <p className="text-[10px] font-bold text-pink-500">منتجات نثق بها ✨</p>
+                </div>
+                <div className="absolute -bottom-1 left-0 w-2 h-2 bg-white transform rotate-45 border-r border-b border-pink-100"></div>
+             </div>
+             <button 
+               onClick={() => setView('store')}
+               className={`p-4 rounded-full shadow-2xl transition-all active:scale-90 flex items-center justify-center hover:rotate-12 ${view === 'store' ? 'bg-pink-600 text-white scale-110 ring-4 ring-pink-100' : 'bg-pink-500 text-white shadow-pink-500/30'}`}
+             >
+               <ShoppingCart size={28} />
+             </button>
+          </div>
         </>
       )}
 

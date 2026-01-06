@@ -2,6 +2,8 @@
 export type MaritalStatus = 'single' | 'married' | 'all';
 export type MotherhoodStatus = 'pregnant' | 'not_pregnant' | 'mother' | 'none' | 'all';
 
+export type JordanProvince = 'عمان' | 'إربد' | 'الزرقاء' | 'البلقاء' | 'مأدبا' | 'الكرك' | 'الطفيلة' | 'معان' | 'العقبة' | 'المفرق' | 'جرش' | 'عجلون';
+
 export interface AICache {
   greeting?: { text: string; expiresAt: number };
   statusAdvice?: { text: string; expiresAt: number; statusType: string };
@@ -34,12 +36,38 @@ export interface UserProfile {
   aiCache?: AICache;
 }
 
+export interface Product {
+  id?: string;
+  name: string;
+  description: string;
+  price: string;
+  image: string;
+  link: string;
+  category: 'skin' | 'family' | 'fitness' | 'general';
+  timestamp: number;
+  likes?: number;
+  comments?: Comment[];
+}
+
+export interface Order {
+  id?: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  province: JordanProvince;
+  items: Product[];
+  totalPrice: number;
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  timestamp: number;
+}
+
 export interface Article {
   id?: string;
   title: string;
   image: string;
   content: string;
-  category: 'skin' | 'family' | 'fitness';
+  category: 'skin' | 'family' | 'fitness'; // skin: بشرتك، family: الطفل والأم/الأسرة، fitness: الرشاقة
+  subCategory?: string;
   targetMarital: MaritalStatus;
   ageRange: [number, number];
   targetMotherhood: MotherhoodStatus;
@@ -68,5 +96,5 @@ export interface Comment {
 export interface Message {
   role: 'user' | 'model';
   text: string;
-  timestamp: number; // الوقت بالملي ثانية
+  timestamp: number;
 }

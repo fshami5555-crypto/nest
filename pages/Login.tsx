@@ -9,6 +9,8 @@ interface LoginProps {
   setIsAdmin: (a: boolean) => void;
 }
 
+const LOGO_URL = "https://i.ibb.co/TM561d6q/image.png";
+
 const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +30,6 @@ const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin }) => {
 
     try {
       const found = await getUserFromDB(phone);
-      // ملاحظة: في تطبيق حقيقي يجب تشفير كلمة السر والتحقق منها. هنا نتحقق ببساطة.
       if (found) {
         setUser(found);
         localStorage.setItem('nestgirl_user', JSON.stringify(found));
@@ -45,7 +46,7 @@ const Login: React.FC<LoginProps> = ({ setView, setUser, setIsAdmin }) => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-gradient-to-b from-pink-100 to-white">
-      <img src="https://i.ibb.co/gLTJ5VMS/image.png" alt="Nestgirl Logo" className="w-48 mb-8 drop-shadow-md" />
+      <img src={LOGO_URL} alt="Nestgirl Logo" className="w-56 mb-8 drop-shadow-2xl animate-bounce-slow object-contain" />
       <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-pink-50">
         <h1 className="text-3xl font-bold text-center text-pink-600 mb-8">تسجيل الدخول</h1>
         {error && <p className="text-red-500 text-center mb-4 text-sm font-bold">{error}</p>}

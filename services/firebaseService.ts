@@ -6,16 +6,11 @@ import {
   enableIndexedDbPersistence
 } from "firebase/firestore";
 import { db } from "../firebase.ts";
-import { UserProfile, Article, CommunityPost, Comment } from "../types.ts";
+import { UserProfile, Article, CommunityPost, Comment, Product, Order } from "../types.ts";
 
-// محاولة تفعيل ميزة العمل دون اتصال
 if (typeof window !== 'undefined') {
   enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-    } else if (err.code === 'unimplemented') {
-      console.warn("The current browser doesn't support persistence features.");
-    }
+    console.warn("Firestore Persistence Error:", err.code);
   });
 }
 
@@ -32,165 +27,139 @@ const cleanData = (data: any) => {
   return cleaned;
 };
 
-// Global Settings
-export const saveAppSettings = async (settings: { geminiApiKey: string }) => {
-  try {
-    await setDoc(doc(db, "settings", "config"), cleanData(settings));
-  } catch (e) {
-    console.error("Error saving settings:", e);
-    throw e;
-  }
-};
-
-export const getAppSettings = async () => {
-  try {
-    const docRef = doc(db, "settings", "config");
-    // محاولة جلب الوثيقة مع معالجة حالة الـ offline
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() as { geminiApiKey: string } : null;
-  } catch (e: any) {
-    console.warn("Could not fetch settings (probably offline):", e.message);
-    return null;
-  }
-};
-
-// Users
+// --- Users ---
 export const saveUserToDB = async (user: UserProfile) => {
   try {
-    const dataToSave = cleanData(user);
-    await setDoc(doc(db, "users", user.phone), dataToSave);
-  } catch (e) {
-    console.error("Error saving user:", e);
-    throw e;
-  }
+    await setDoc(doc(db, "users", user.phone), cleanData(user));
+  } catch (e) { console.error(e); }
 };
 
 export const getUserFromDB = async (phone: string) => {
   try {
-    const docRef = doc(db, "users", phone);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getDoc(doc(db, "users", phone));
     return docSnap.exists() ? docSnap.data() as UserProfile : null;
-  } catch (e: any) {
-    console.warn("Could not fetch user from DB (offline/error):", e.message);
-    return null;
-  }
+  } catch (e) { return null; }
 };
 
 export const getAllUsersFromDB = async () => {
   try {
     const querySnapshot = await getDocs(collection(db, "users"));
     return querySnapshot.docs.map(doc => doc.data() as UserProfile);
-  } catch (e) {
-    console.error("Error getting all users:", e);
-    return [];
+  } catch (e) { return []; }
+};
+
+// --- Orders ---
+export const createOrderInDB = async (order: Order) => {
+  try {
+    return await addDoc(collection(db, "orders"), { ...cleanData(order), timestamp: Date.now() });
+  } catch (e: any) {
+    throw new Error("Missing permissions. Please update Firestore Rules.");
   }
 };
 
-export const deleteUserFromDB = async (phone: string) => {
-  try {
-    const docRef = doc(db, "users", phone);
-    await deleteDoc(docRef);
-  } catch (e) {
-    console.error("Error deleting user:", e);
-    throw e;
-  }
+export const listenToOrders = (callback: (orders: Order[]) => void) => {
+  const q = query(collection(db, "orders"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (s) => callback(s.docs.map(d => ({ id: d.id, ...d.data() } as Order))), (e) => console.warn(e));
 };
 
-// Articles
-export const addArticleToDB = async (article: Article) => {
+export const updateOrderStatusInDB = async (orderId: string, status: Order['status']) => {
   try {
-    await addDoc(collection(db, "articles"), { 
-      ...cleanData(article), 
-      createdAt: Date.now(),
-      likes: 0,
-      comments: []
-    });
-  } catch (e) {
-    console.error("Error adding article:", e);
-  }
+    await updateDoc(doc(db, "orders", orderId), { status });
+  } catch (e) { console.error(e); }
 };
 
-export const listenToArticles = (callback: (articles: Article[]) => void, onError?: (err: any) => void) => {
-  return onSnapshot(collection(db, "articles"), 
-    (snapshot) => {
-      const articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
-      callback(articles);
-    },
-    (error) => {
-      console.warn("Articles listener issue:", error);
-      if (onError) onError(error);
-    }
-  );
-};
-
-export const addCommentToArticle = async (articleId: string, comment: Comment) => {
+// --- Products ---
+export const addProductToDB = async (product: Product) => {
   try {
-    const docRef = doc(db, "articles", articleId);
-    await updateDoc(docRef, {
-      comments: arrayUnion(cleanData(comment))
-    });
-  } catch (e) {
-    console.error("Error adding comment to article:", e);
-  }
-};
-
-export const likeArticleInDB = async (articleId: string, currentLikes: number) => {
-  try {
-    const docRef = doc(db, "articles", articleId);
-    await updateDoc(docRef, {
-      likes: currentLikes + 1
-    });
-  } catch (e) {
-    console.error("Error liking article:", e);
-  }
-};
-
-// Community
-export const addPostToDB = async (post: Partial<CommunityPost>) => {
-  try {
-    await addDoc(collection(db, "posts"), { 
-      ...cleanData(post), 
+    await addDoc(collection(db, "products"), { 
+      ...cleanData(product), 
       timestamp: Date.now(),
       likes: 0,
       comments: []
     });
-  } catch (e) {
-    console.error("Error adding post:", e);
+  } catch (e: any) {
+    alert("خطأ في الصلاحيات عند إضافة المنتج.");
   }
 };
 
-export const listenToPosts = (callback: (posts: CommunityPost[]) => void, onError?: (err: any) => void) => {
+export const deleteProductFromDB = async (id: string) => {
+  try { await deleteDoc(doc(db, "products", id)); } catch (e) { console.error(e); }
+};
+
+export const listenToProducts = (callback: (products: Product[]) => void) => {
+  const q = query(collection(db, "products"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (s) => callback(s.docs.map(d => ({ id: d.id, ...d.data() } as Product))), (e) => console.warn(e));
+};
+
+export const addCommentToProduct = async (productId: string, comment: Comment) => {
+  try {
+    await updateDoc(doc(db, "products", productId), {
+      comments: arrayUnion(cleanData(comment))
+    });
+  } catch (e) { console.error(e); }
+};
+
+export const likeProductInDB = async (productId: string, currentLikes: number) => {
+  try {
+    await updateDoc(doc(db, "products", productId), {
+      likes: (currentLikes || 0) + 1
+    });
+  } catch (e) { console.error(e); }
+};
+
+// --- Articles ---
+export const addArticleToDB = async (article: Article) => {
+  try {
+    await addDoc(collection(db, "articles"), { 
+      ...cleanData(article), 
+      createdAt: Date.now(), 
+      likes: 0, 
+      comments: [] 
+    });
+  } catch (e) { alert("خطأ في الصلاحيات عند إضافة المقال."); }
+};
+
+export const deleteArticleFromDB = async (id: string) => {
+  try { await deleteDoc(doc(db, "articles", id)); } catch (e) { console.error(e); }
+};
+
+export const listenToArticles = (callback: (articles: Article[]) => void) => {
+  return onSnapshot(collection(db, "articles"), (s) => callback(s.docs.map(d => ({id: d.id, ...d.data()} as Article))), (e) => console.warn(e));
+};
+
+export const addCommentToArticle = async (articleId: string, comment: Comment) => {
+  try { await updateDoc(doc(db, "articles", articleId), { comments: arrayUnion(cleanData(comment)) }); } catch(e) {}
+};
+
+export const likeArticleInDB = async (articleId: string, currentLikes: number) => {
+  try { await updateDoc(doc(db, "articles", articleId), { likes: currentLikes + 1 }); } catch(e) {}
+};
+
+// --- Community ---
+export const addPostToDB = async (post: Partial<CommunityPost>) => {
+  try {
+    await addDoc(collection(db, "posts"), { 
+      ...cleanData(post), 
+      timestamp: Date.now(), 
+      likes: 0, 
+      comments: [] 
+    });
+  } catch(e) { alert("خطأ في الصلاحيات عند إضافة المنشور."); }
+};
+
+export const deletePostFromDB = async (id: string) => {
+  try { await deleteDoc(doc(db, "posts", id)); } catch (e) { console.error(e); }
+};
+
+export const listenToPosts = (callback: (posts: CommunityPost[]) => void) => {
   const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
-  return onSnapshot(q, 
-    (snapshot) => {
-      const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommunityPost));
-      callback(posts);
-    },
-    (error) => {
-      console.warn("Posts listener issue:", error);
-      if (onError) onError(error);
-    }
-  );
+  return onSnapshot(q, (s) => callback(s.docs.map(d => ({id: d.id, ...d.data()} as CommunityPost))), (e) => console.warn(e));
 };
 
 export const addCommentToPost = async (postId: string, comment: Comment) => {
-  try {
-    const postRef = doc(db, "posts", postId);
-    await updateDoc(postRef, {
-      comments: arrayUnion(cleanData(comment))
-    });
-  } catch (e) {
-    console.error("Error adding comment:", e);
-  }
+  try { await updateDoc(doc(db, "posts", postId), { comments: arrayUnion(cleanData(comment)) }); } catch (e) {}
 };
 
 export const likePostInDB = async (postId: string, currentLikes: number) => {
-  try {
-    const postRef = doc(db, "posts", postId);
-    await updateDoc(postRef, {
-      likes: currentLikes + 1
-    });
-  } catch (e) {
-    console.error("Error liking post:", e);
-  }
+  try { await updateDoc(doc(db, "posts", postId), { likes: currentLikes + 1 }); } catch (e) {}
 };
